@@ -1,3 +1,8 @@
+// Copyright (c) Imazen LLC.
+// No part of this project, including this file, may be copied, modified,
+// propagated, or distributed except as permitted in COPYRIGHT.txt.
+// Licensed under the GNU Affero General Public License, Version 3.0.
+// Commercial licenses available at http://imageresizing.net/
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
@@ -55,14 +60,14 @@ namespace ImageResizer.Plugins.SeamCarving {
                 using (Stream input = Assembly.GetExecutingAssembly().GetManifestResourceStream("ImageResizer.Plugins.SeamCarving.pthreadVSE2.dll"))
                 using (Stream output = File.Create(dllPath))
                 {
-                    StreamExtensions.CopyToStream(input, output);
+                    input.CopyToStream(output);
                 }
 
                 string tempPath = Path.Combine(cairDir, "cair.exe");
 
                 using (Stream input = Assembly.GetExecutingAssembly().GetManifestResourceStream("ImageResizer.Plugins.SeamCarving.CAIR.exe"))
                 using (Stream output = File.Create(tempPath)) {
-                    StreamExtensions.CopyToStream(input, output);
+                    input.CopyToStream(output);
                 }
                 //Save the path.
                 cairPath = tempPath;
@@ -193,6 +198,6 @@ namespace ImageResizer.Plugins.SeamCarving {
 
 
 
-		
+        
     }
 }

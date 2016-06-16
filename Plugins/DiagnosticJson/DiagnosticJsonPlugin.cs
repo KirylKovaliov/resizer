@@ -1,5 +1,8 @@
-﻿/* Copyright (c) 2013 Imazen LLC. See license.txt for your rights */
-using System;
+// Copyright (c) Imazen LLC.
+// No part of this project, including this file, may be copied, modified,
+// propagated, or distributed except as permitted in COPYRIGHT.txt.
+// Licensed under the Apache License, Version 2.0.
+﻿using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Drawing;
@@ -90,7 +93,7 @@ namespace ImageResizer.Plugins.DiagnosticJson
 
         private bool IsDiagnosticRequest(NameValueCollection nvc)
         {
-            var level = NameValueCollectionExtensions.Get(nvc, SettingsKey, DiagnosticLevel.None);
+            var level = nvc.Get(SettingsKey, DiagnosticLevel.None);
             return level != DiagnosticLevel.None;
         }
     }

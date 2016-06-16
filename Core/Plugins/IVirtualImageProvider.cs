@@ -1,3 +1,7 @@
+// Copyright (c) Imazen LLC.
+// No part of this project, including this file, may be copied, modified,
+// propagated, or distributed except as permitted in COPYRIGHT.txt.
+// Licensed under the Apache License, Version 2.0.
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
@@ -10,7 +14,7 @@ namespace ImageResizer.Plugins {
     /// </summary>
     public interface IVirtualImageProvider {
         /// <summary>
-        /// Returns true if the specified file exists.
+        /// Returns true if the specified request should be handled by this virtual image provider
         /// </summary>
         /// <param name="virtualPath"></param>
         /// <param name="queryString"></param>

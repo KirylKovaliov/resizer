@@ -1,3 +1,8 @@
+// Copyright (c) Imazen LLC.
+// No part of this project, including this file, may be copied, modified,
+// propagated, or distributed except as permitted in COPYRIGHT.txt.
+// Licensed under the GNU Affero General Public License, Version 3.0.
+// Commercial licenses available at http://imageresizing.net/
 ﻿using ImageResizer.Configuration;
 using ImageResizer.Plugins;
 using ImageResizer.Util;
@@ -37,7 +42,7 @@ namespace ImageResizer
         /// <summary>
         /// Lowercases and normalizes some common extension aliases (jpeg->jpg, tiff-tif). Does not filter out non-image extensions!
         /// </summary>
-        /// <param name="path"></param>
+        /// <param name="extension"></param>
         /// <returns></returns>
         public string NormalizeExtension(string extension)
         {
@@ -183,6 +188,9 @@ namespace ImageResizer
         /// Generates a safe name for your image in the form "guid.ext". Uses stream signatures first, then the path to determine the appropriate image extension.
         /// You can provide your own whitelist of extensions if desired; this defaults to the extensions supported by the currently installed set of plugins.
         /// </summary>
+        /// <param name="image"></param>
+        /// <param name="originalPath"></param>
+        /// <param name="whitelistedFormats"></param>
         /// <param name="unrecognizedImageExtension">Pass null to have an ArgumentException thrown if the image type is not recognized as a whitelisted format</param>
         /// <returns></returns>
         public string GenerateSafeImageName(Stream image = null, string originalPath = null, string unrecognizedImageExtension = ".unknown", string[] whitelistedFormats = null)

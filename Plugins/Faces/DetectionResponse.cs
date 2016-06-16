@@ -1,3 +1,8 @@
+// Copyright (c) Imazen LLC.
+// No part of this project, including this file, may be copied, modified,
+// propagated, or distributed except as permitted in COPYRIGHT.txt.
+// Licensed under the GNU Affero General Public License, Version 3.0.
+// Commercial licenses available at http://imageresizing.net/
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -9,17 +14,54 @@ using System.IO;
 using ImageResizer.Caching;
 
 namespace ImageResizer.Plugins.Faces {
+    /// <summary>
+    /// Declares variables for the values determined by the Faces plugin (the original values and the values on the destination image).
+    /// </summary>
+    /// <typeparam name="T"></typeparam>
     public class DetectionResponse<T> {
+        /// <summary>
+        /// X value for the destination image.
+        /// </summary>
         public float dx;
+        /// <summary>
+        /// Y value for the destination image.
+        /// </summary>
         public float dy;
+        /// <summary>
+        /// Width value for the destination image.
+        /// </summary>
         public float dw;
+        /// <summary>
+        /// Height value for the destination image.
+        /// </summary>
         public float dh;
+        /// <summary>
+        /// Width value for the original image.
+        /// </summary>
         public float ow;
+        /// <summary>
+        /// Height value for the original image.
+        /// </summary>
         public float oh;
+        /// <summary>
+        /// X value for the cropped image (isolated facial feature).
+        /// </summary>
         public float cropx;
+        /// <summary>
+        /// Y value for the cropped image (isolated facial feature).
+        /// </summary>
         public float cropy;
+        /// <summary>
+        /// Width value for the cropped image (isolated facial feature).
+        /// </summary>
         public float cropw;
+        /// <summary>
+        /// Height value for the cropped image (isolated facial feature).
+        /// </summary>
         public float croph;
+        /// <summary>
+        /// The facial features which are being isolated.
+        /// </summary>
         public List<T> features;
         public string message;
 

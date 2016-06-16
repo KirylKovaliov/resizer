@@ -1,3 +1,8 @@
+// Copyright (c) Imazen LLC.
+// No part of this project, including this file, may be copied, modified,
+// propagated, or distributed except as permitted in COPYRIGHT.txt.
+// Licensed under the GNU Affero General Public License, Version 3.0.
+// Commercial licenses available at http://imageresizing.net/
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
@@ -152,6 +157,9 @@ namespace ImageResizer.Plugins.RedEye {
         /// A queue of points which have been filled, but their neighbors not yet evalutated.
         /// </summary>
         Queue<System.Drawing.Point> q;
+        /// <summary>
+        /// Initial fill to determine actual center and radius.
+        /// </summary>
         public void FirstPass() {
             filledArray = new bool[red.Height, red.Width];
             q = new Queue<System.Drawing.Point>();
@@ -192,7 +200,9 @@ namespace ImageResizer.Plugins.RedEye {
                 }
             }
         }
-
+        /// <summary>
+        /// Recalculate pixels to modify based on first pass.
+        /// </summary>
         public void SecondPass() {
             ClearArray();
             SumX = 0;
@@ -208,7 +218,7 @@ namespace ImageResizer.Plugins.RedEye {
             
             Point p;
             byte pval;
-            double pdist;
+            //double pdist;
             while (q.Count > 0) {
                 //Dequeue the parent point 
                 p = q.Dequeue();
@@ -352,7 +362,10 @@ namespace ImageResizer.Plugins.RedEye {
 
 
         }
-
+        /// <summary>
+        /// Bulrs edges of filled red-eye.
+        /// </summary>
+        /// <returns></returns>
         public UnmanagedImage GetBlurredMask() {
             using (UnmanagedImage ui = UnmanagedImage.Create(filledArray.GetLength(1),filledArray.GetLength(0), PixelFormat.Format8bppIndexed)) {
                 MarkFilledPixels(ui, 0, 0, new byte[] { 255 });

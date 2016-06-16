@@ -1,3 +1,8 @@
+// Copyright (c) Imazen LLC.
+// No part of this project, including this file, may be copied, modified,
+// propagated, or distributed except as permitted in COPYRIGHT.txt.
+// Licensed under the GNU Affero General Public License, Version 3.0.
+// Commercial licenses available at http://imageresizing.net/
 ﻿using ImageResizer.Configuration;
 using ImageResizer.Resizing;
 using System;
@@ -30,7 +35,10 @@ namespace ImageResizer.Plugins.FFmpeg
         }
         private FFmpegManager mgr = new FFmpegManager();
 
-
+        /// <summary>
+        /// Additional file types this plugin adds support for decoding.
+        /// </summary>
+        /// <returns></returns>
         public IEnumerable<string> GetSupportedFileExtensions()
         {
             return new string[] {"avi", "mp4","avchd","flv","fla","swf","mpg","mpeg","mpe","mov","m4v","mkv","wmv" };
@@ -62,7 +70,10 @@ namespace ImageResizer.Plugins.FFmpeg
                 return null;
         }
 
-
+        /// <summary>
+        /// Returns the querystrings command keys supported by this plugin. 
+        /// </summary>
+        /// <returns></returns>
         public IEnumerable<string> GetSupportedQuerystringKeys()
         {
             return new string[] {"ffmpeg.seconds" ,"ffmpeg.percent","ffmpeg.skipblankframes" };

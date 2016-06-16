@@ -1,9 +1,14 @@
-﻿/* Copyright (c) 2011 Nathanael Jones. See license.txt */
+// Copyright (c) Imazen LLC.
+// No part of this project, including this file, may be copied, modified,
+// propagated, or distributed except as permitted in COPYRIGHT.txt.
+// Licensed under the Apache License, Version 2.0.
+﻿
 using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Drawing;
 using System.IO;
+using System.Drawing.Imaging;
 
 // Contains classes for calculating and rendering images, as well as for building image processing plugins.
 namespace ImageResizer.Resizing {
@@ -46,16 +51,16 @@ namespace ImageResizer.Resizing {
         /// <summary>
         /// Contains the set of extensions that are called for every method. 
         /// </summary>
-		[CLSCompliant(false)]
+        [CLSCompliant(false)]
         protected volatile IEnumerable<BuilderExtension> exts;
 
         /// <summary>
         /// Extend this to allow additional types of source objects to be accepted by transforming them into Bitmap instances.
         /// </summary>
         /// <param name="source"></param>
-		/// <param name="path"></param>
-		/// <param name="disposeSource"></param>
-		/// <param name="settings"></param>
+        /// <param name="path"></param>
+        /// <param name="disposeSource"></param>
+        /// <param name="settings"></param>
         protected virtual void PreLoadImage(ref object source, ref string path, ref bool disposeSource, ref ResizeSettings settings) {
             if (exts != null) foreach (AbstractImageProcessor p in exts) p.PreLoadImage(ref source, ref path, ref disposeSource, ref settings);
         }
@@ -156,6 +161,34 @@ namespace ImageResizer.Resizing {
             return RequestedAction.None;
         }
 
+        protected virtual RequestedAction BeforeEncode(ImageResizer.ImageJob job)
+        {
+            if (exts != null)
+                foreach (AbstractImageProcessor p in exts)
+                    if (p.BeforeEncode(job) == RequestedAction.Cancel)
+                        return RequestedAction.Cancel;
+            return RequestedAction.None;
+        }
+
+        protected virtual RequestedAction EndBuildJob(ImageResizer.ImageJob job)
+        {
+            if (exts != null)
+                foreach (AbstractImageProcessor p in exts)
+                    if (p.EndBuildJob(job) == RequestedAction.Cancel)
+                        return RequestedAction.Cancel;
+            return RequestedAction.None;
+        }
+
+        protected virtual RequestedAction InternalGraphicsDrawImage(ImageState state, Bitmap dest, Bitmap source, PointF[] targetArea, RectangleF sourceArea, float[][] colorMatrix) {
+            if (exts != null)
+                foreach (AbstractImageProcessor p in exts)
+                    if (p.InternalGraphicsDrawImage(state, dest,source,targetArea,sourceArea,colorMatrix) == RequestedAction.Cancel)
+                        return RequestedAction.Cancel;
+            return RequestedAction.None;
+
+        }
+     
+
 
         /// <summary>
         /// Called for Build() calls that want the result encoded. (Not for Bitmap Build(source,settings) calls.
@@ -166,37 +199,16 @@ namespace ImageResizer.Resizing {
         /// </summary>
         /// <param name="source"></param>
         /// <param name="dest"></param>
-        /// <param name="settings"></param>
+        /// <param name="job"></param>
         /// <returns></returns>
-        [Obsolete("This method will be removed in the next release. Do not override or implement.")]
-        protected virtual RequestedAction buildToStream(Bitmap source, Stream dest, ResizeSettings settings) {
+        protected virtual RequestedAction BuildJobBitmapToStream(ImageJob job, Bitmap source, Stream dest){
             if (exts != null) 
-                foreach (AbstractImageProcessor p in exts) 
-                    if (p.buildToStream(source, dest, settings) == RequestedAction.Cancel) 
+                foreach (AbstractImageProcessor p in exts)
+                    if (p.BuildJobBitmapToStream(job, source, dest) == RequestedAction.Cancel) 
                         return RequestedAction.Cancel;
             return RequestedAction.None;
         }
-        /// <summary>
-        /// Most calls funnel through here. Default behavior configures an ImageState instance and calls Process(imageState); 
-        /// Shouldn't be overriden for any reason I can think of - use the appropriate virtual method under Process().
-        /// If an extension returns a Bitmap instance, it will be used instead of the default behavior.
-        /// Does NOT dispose of 'source' or 'source's underlying stream.
-        /// </summary>
-        /// <param name="source"></param>
-        /// <param name="settings"></param>
-        /// <param name="transparencySupported"></param>
-        /// <returns></returns>
-        [Obsolete("This method will be removed in the next release. Do not override or implement.")]
-        protected virtual Bitmap buildToBitmap(Bitmap source, ResizeSettings settings, bool transparencySupported) {
-            if (exts != null) {
-                foreach (AbstractImageProcessor p in exts) {
-                    Bitmap b = p.buildToBitmap(source, settings, transparencySupported);
-                    if (b != null) return b;
-                }
-            }
-            return null;
-        }
-
+ 
         /// <summary>
         /// Process.0 First step of the Process() method. Can replace the entire Process method if RequestAction.Cancel is returned.
         /// Can be used to add points to translate (for image maps), and also to modify the settings 

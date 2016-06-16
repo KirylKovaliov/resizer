@@ -1,3 +1,7 @@
+// Copyright (c) Imazen LLC.
+// No part of this project, including this file, may be copied, modified,
+// propagated, or distributed except as permitted in COPYRIGHT.txt.
+// Licensed under the Apache License, Version 2.0.
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -53,7 +57,7 @@ namespace ImageResizer.Plugins.TinyCache {
 
 
         /// <summary>
-        /// Returns a number between 0 and 1, where 1 is the highest preservation recommendation
+        /// Returns a number between 0 and 1, where 1 is the highest preservation reccomendation
         /// </summary>
         /// <returns></returns>
         public float GetPreservationPriority() {
@@ -77,8 +81,8 @@ namespace ImageResizer.Plugins.TinyCache {
 
             //How long has it been since the average of the last 8 reads?
             //Divide by last 30 minutes
-            float recent_usage = (float)Math.Min(0, 1 - Math.Max(30, recent_reads.Average(d => now.Subtract(d).TotalMinutes)) / 30.0);
-
+            float recent_usage = recent_reads.Count == 0 ? 0 : (float)Math.Min(0, 1 - Math.Max(30, recent_reads.Average(d => now.Subtract(d).TotalMinutes)) / 30.0);
+            
             float recent_usage_weight = 1 - (float)(Math.Max(30, now.Subtract(loaded).TotalMinutes) / 30);
 
             //If the entry has been cleared and recreated 

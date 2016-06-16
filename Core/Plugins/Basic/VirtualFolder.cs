@@ -1,3 +1,7 @@
+// Copyright (c) Imazen LLC.
+// No part of this project, including this file, may be copied, modified,
+// propagated, or distributed except as permitted in COPYRIGHT.txt.
+// Licensed under the Apache License, Version 2.0.
 ﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -14,12 +18,13 @@ using System.Security;
 using ImageResizer.Configuration.Issues;
 using ImageResizer.Util;
 using ImageResizer.ExtensionMethods;
+using System.Threading.Tasks;
 
 namespace ImageResizer.Plugins.Basic {
     /// <summary>
     /// Functions exactly like an IIS virtual folder, but doesn't require IIS configuration.
     /// </summary>
-    public class VirtualFolder : VirtualPathProvider, IVirtualImageProvider, IPlugin , IMultiInstancePlugin, IIssueProvider{
+    public class VirtualFolder : VirtualPathProvider, IVirtualImageProviderAsync, IVirtualImageProvider, IPlugin , IMultiInstancePlugin, IIssueProvider{
 
         public VirtualFolder(string virtualPath, string physicalPath)
             : this(virtualPath,physicalPath,true) {
@@ -35,7 +40,7 @@ namespace ImageResizer.Plugins.Basic {
             : base() {
             this.VirtualPath = args["virtualPath"];
             this.PhysicalPath = args["physicalPath"];
-            this.RegisterAsVpp = NameValueCollectionExtensions.Get(args, "vpp", true);
+            this.RegisterAsVpp = args.Get("vpp", true);
         }
 
 
@@ -118,8 +123,8 @@ namespace ImageResizer.Plugins.Basic {
         /// <param name="path"></param>
         /// <returns></returns>
         protected string resolvePhysicalPath(string path) {
-            
-            if (!Path.IsPathRooted(path)) path = Path.Combine(HostingEnvironment.ApplicationPhysicalPath, path);
+
+            if (!Path.IsPathRooted(path) && HostingEnvironment.ApplicationPhysicalPath != null) path = Path.Combine(HostingEnvironment.ApplicationPhysicalPath, path);
             if (NoIOPermission) return collapsePath(path);
 
             try {
@@ -296,7 +301,7 @@ namespace ImageResizer.Plugins.Basic {
 
         }
 
-        public class VirtualFolderProviderVirtualFile : VirtualFile, IVirtualFileWithModifiedDate, IVirtualFile, IVirtualFileSourceCacheKey{
+        public class VirtualFolderProviderVirtualFile : VirtualFile, IVirtualFileAsync, IVirtualFileWithModifiedDate, IVirtualFile, IVirtualFileSourceCacheKey{
 
             private VirtualFolder provider;
 
@@ -327,6 +332,11 @@ namespace ImageResizer.Plugins.Basic {
             public string GetCacheKey(bool includeModifiedDate) {
                 return VirtualPath + (includeModifiedDate ? ("_" + ModifiedDateUTC.Ticks.ToString(CultureInfo.InvariantCulture)) : "");
             }
+
+            public Task<Stream> OpenAsync()
+            {
+                return Task.FromResult(provider.getStream(this.VirtualPath));
+            }
         }
 
         public IEnumerable<IIssue> GetIssues() {
@@ -340,6 +350,26 @@ namespace ImageResizer.Plugins.Basic {
         }
 
 
+
+        public Task<bool> FileExistsAsync(string virtualPath, NameValueCollection queryString)
+        {
+            if (NoIOPermission) return Task.FromResult(false); //Because File.Exists is always false when IOPermission is missing, anyhow.
+            if (!IsVirtualPath(virtualPath)) return Task.FromResult(false); //It's not even in our area.
+            if (File.Exists(LocalMapPath(virtualPath)))
+            {
+                //Ok, we could serve it, but existing files take precedence.
+                //Return false if we would be masking an existing file.
+                return Task.FromResult(!File.Exists(HostingEnvironment.MapPath(normalizeVirtualPath(virtualPath))));
+            }
+            return Task.FromResult(false);
+        }
+
+        public Task<IVirtualFileAsync> GetFileAsync(string virtualPath, NameValueCollection queryString)
+        {
+            if (NoIOPermission) return Task.FromResult<IVirtualFileAsync>(null);
+            if (!IsVirtualPath(virtualPath)) return Task.FromResult<IVirtualFileAsync>(null); //It's not even in our area.
+            return Task.FromResult<IVirtualFileAsync>(new VirtualFolderProviderVirtualFile(virtualPath, this));
+        }
     }
 
 }

@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="12.0">
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
@@ -19,7 +19,7 @@
     <SignAssembly>false</SignAssembly>
     <AssemblyOriginatorKeyFile>
     </AssemblyOriginatorKeyFile>
-    <TargetFrameworkVersion>v2.0</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <TargetFrameworkProfile />
     <PublishUrl>publish\</PublishUrl>
     <Install>true</Install>
@@ -47,6 +47,7 @@
     <DocumentationFile>..\dlls\debug\ImageResizer.XML</DocumentationFile>
     <PlatformTarget>AnyCPU</PlatformTarget>
     <NoWarn>1591</NoWarn>
+    <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -59,6 +60,8 @@
     <CodeAnalysisIgnoreGeneratedCode>true</CodeAnalysisIgnoreGeneratedCode>
     <RegisterForComInterop>false</RegisterForComInterop>
     <NoWarn>1591</NoWarn>
+    <Prefer32Bit>false</Prefer32Bit>
+    <CodeAnalysisRuleSet>ManagedMinimumRules.ruleset</CodeAnalysisRuleSet>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="System" />
@@ -69,9 +72,28 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="AsyncInterceptModule.cs" />
     <Compile Include="BoxEdges.cs" />
     <Compile Include="Collections\QuerystringBase.cs" />
-    <Compile Include="Collections\ReadOnlyDictionary.cs" />
+    <Compile Include="ExtensionMethods\Dictionary.cs" />
+    <Compile Include="PluginLoadingHints.cs" />
+    <Compile Include="Plugins\Basic\IDiagnosticsProvider.cs" />
+    <Compile Include="Plugins\Basic\MvcRoutingShimPlugin.cs" />
+    <Compile Include="Plugins\Basic\NoCacheAsyncHandler.cs" />
+    <Compile Include="Plugins\Basic\StopRoutingRoute.cs" />
+    <Compile Include="Plugins\IAsyncResponsePlan.cs" />
+    <Compile Include="Plugins\IAsyncTyrantCache.cs" />
+    <Compile Include="Plugins\ILicensedPlugin.cs" />
+    <Compile Include="Plugins\IProfiler.cs" />
+    <Compile Include="Plugins\IVirtualFileAsync.cs" />
+    <Compile Include="Plugins\IVirtualFileCacheAsync.cs" />
+    <Compile Include="Plugins\IVirtualFileWithModifiedDateAsync.cs" />
+    <Compile Include="Plugins\IVirtualImageProviderAsync.cs" />
+    <Compile Include="Plugins\IVirtualImageProviderVpp.cs" />
+    <Compile Include="Plugins\IVirtualImageProviderVppCaching.cs" />
+    <Compile Include="Plugins\StaticLicenseProvider.cs" />
+    <Compile Include="Plugins\VirtualFileShim.cs" />
+    <Compile Include="Plugins\VirtualPathProvderShim.cs" />
     <Compile Include="Plugins\FileSignature.cs" />
     <Compile Include="Plugins\IFileSignatureProvider.cs" />
     <Compile Include="Configuration\Issues\ConfigChecker.cs" />
@@ -126,8 +148,7 @@
     <Compile Include="Plugins\Basic\Presets.cs" />
     <Compile Include="Plugins\Basic\SpeedOrQuality.cs" />
     <Compile Include="Plugins\ICurrentConfigProvider.cs" />
-    <Compile Include="Plugins\ILicenseService.cs" />
-    <Compile Include="Plugins\ILicenseStore.cs" />
+    <Compile Include="Plugins\ILicenseProvider.cs" />
     <Compile Include="Plugins\IRedactDiagnostics.cs" />
     <Compile Include="Plugins\IVirtualFileSourceCacheKey.cs" />
     <Compile Include="Plugins\IVirtualFileCache.cs" />
@@ -143,12 +164,14 @@
     <Compile Include="Caching\ICache.cs" />
     <Compile Include="Collections\SafeList.cs" />
     <Compile Include="Plugins\Basic\DefaultEncoder.cs" />
-    <Compile Include="Encoding\IEncoderProvider.cs" />
-    <Compile Include="Encoding\IEncoder.cs" />
+    <Compile Include="Plugins\IEncoderProvider.cs" />
+    <Compile Include="Plugins\IEncoder.cs" />
     <Compile Include="Plugins\IQuerystringPlugin.cs" />
     <Compile Include="Plugins\Basic\SizeLimiting.cs" />
     <Compile Include="Plugins\IVirtualFile.cs" />
     <Compile Include="Plugins\IVirtualImageProvider.cs" />
+    <Compile Include="Plugins\WebConfigLicenseReader.cs" />
+    <Compile Include="HttpModuleRequestAssistant.cs" />
     <Compile Include="Resizing\AbstractImageProcessor.cs" />
     <Compile Include="Resizing\BoxPadding.cs" />
     <Compile Include="Enumerations.cs" />
@@ -156,24 +179,24 @@
     <Compile Include="InterceptModule.cs" />
     <Compile Include="Caching\IResponseArgs.cs" />
     <Compile Include="ImageProcessingException.cs" />
+    <Compile Include="Resizing\ImageLayoutEngine.cs" />
     <Compile Include="Resizing\ImageState.cs" />
     <Compile Include="Plugins\IVirtualBitmapFile.cs" />
     <Compile Include="Resizing\BuilderExtension.cs" />
     <Compile Include="Resizing\LayoutBuilder.cs" />
     <Compile Include="Plugins\Basic\SizeLimits.cs" />
     <Compile Include="Resizing\BitmapTag.cs" />
+    <Content Include="COPYRIGHT.txt" />
     <Content Include="Resizing\UnitR.cs.txt" />
     <Compile Include="SharedAssemblyInfo.cs" />
     <Compile Include="Util\AssemblyAttributes.cs" />
-    <Compile Include="Util\DictionaryUtils.cs" />
+    <Compile Include="Util\AsyncUtils.cs" />
     <Compile Include="Util\ParseUtils.cs" />
     <Compile Include="Util\PathUtils.cs" />
     <Compile Include="Util\PolygonMath.cs" />
     <Compile Include="Plugins\IVirtualFileWithModifiedDate.cs" />
     <Compile Include="ResizeSettings.cs" />
     <Compile Include="Util\SeekableStreamWrapper.cs" />
-    <Compile Include="Util\StreamUtils.cs" />
-    <Compile Include="Util\UrlHasher.cs" />
     <Compile Include="Util\Utils.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Plugins\Basic\VirtualFolder.cs" />
@@ -209,10 +232,26 @@
     <Content Include="bugs.txt" />
     <Content Include="exceptions.txt" />
     <Content Include="gdi-bugs.txt" />
-    <Content Include="license.txt" />
     <Content Include="plugin-notes.txt" />
-    <Content Include="todo.txt" />
     <Content Include="totest.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Plugins\Basic\autorotate_readme.md" />
+    <None Include="Plugins\Basic\clientcache_readme.md" />
+    <None Include="Plugins\Basic\defaultencoder_readme.md" />
+    <None Include="Plugins\Basic\defaultsettings_readme.md" />
+    <None Include="Plugins\Basic\diagnostics_readme.md" />
+    <None Include="Plugins\Basic\dropshadow_readme.md" />
+    <None Include="Plugins\Basic\folderresizesyntax_readme.md" />
+    <None Include="Plugins\Basic\gradient_readme.md" />
+    <None Include="Plugins\Basic\iepngfix_readme.md" />
+    <None Include="Plugins\Basic\image404_readme.md" />
+    <None Include="Plugins\Basic\imagehandlersyntax_readme.md" />
+    <None Include="Plugins\Basic\mvcroutingshim_readme.md" />
+    <None Include="Plugins\Basic\presets_readme.md" />
+    <None Include="Plugins\Basic\sizelimiting_readme.md" />
+    <None Include="Plugins\Basic\speedorquality_readme.md" />
+    <None Include="Plugins\Basic\virtualfolder_readme.md" />
   </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

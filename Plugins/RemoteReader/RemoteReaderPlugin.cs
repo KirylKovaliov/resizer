@@ -1,3 +1,8 @@
+// Copyright (c) Imazen LLC.
+// No part of this project, including this file, may be copied, modified,
+// propagated, or distributed except as permitted in COPYRIGHT.txt.
+// Licensed under the GNU Affero General Public License, Version 3.0.
+// Commercial licenses available at http://imageresizing.net/
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
@@ -13,13 +18,15 @@ using System.Web;
 using ImageResizer.Configuration.Xml;
 using ImageResizer.ExtensionMethods;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 
 namespace ImageResizer.Plugins.RemoteReader {
 
-    public class RemoteReaderPlugin : BuilderExtension, IPlugin, IVirtualImageProvider, IIssueProvider, IRedactDiagnostics {
+    public class RemoteReaderPlugin : BuilderExtension, IPlugin, IVirtualImageProvider, IIssueProvider, IRedactDiagnostics, IVirtualImageProviderAsync
+    {
 
         public Configuration.Xml.Node RedactFrom(Node resizer) {
-            if (resizer.queryFirst("remoteReader") != null) resizer.setAttr("remoteReader.signingKey", "[redacted]");
+            if (resizer != null && resizer.queryFirst("remoteReader") != null) resizer.setAttr("remoteReader.signingKey", "[redacted]");
 
             return resizer;
         }
@@ -35,24 +42,26 @@ namespace ImageResizer.Plugins.RemoteReader {
             get { return RemoteReaderPlugin.hmacKey; }
         }
 
-        private int _allowedRedirects = 5;
         /// <summary>
         /// How many redirects to follow before throwing an exception. Defaults to 5.
         /// </summary>
-        public int AllowedRedirects {
-            get { return _allowedRedirects; }
-            set { _allowedRedirects = value; }
-        }
+        public int AllowedRedirects { get; set; }
 
         protected string remotePrefix = "~/remote";
         Config c;
         public RemoteReaderPlugin() {
+            AllowedRedirects = 5;
             try {
                 remotePrefix = Util.PathUtils.ResolveAppRelativeAssumeAppRelative(remotePrefix);
                 //Remote prefix must never end in a slash - remote.jpg syntax...
             } catch { }
         }
 
+        /// <summary>
+        /// Adds the plugin to the given configuration container
+        /// </summary>
+        /// <param name="c"></param>
+        /// <returns></returns>
         public IPlugin Install(Configuration.Config c) {
             this.c = c;
             c.Plugins.add_plugin(this);
@@ -68,7 +77,11 @@ namespace ImageResizer.Plugins.RemoteReader {
             if (IsRemotePath(c.Pipeline.PreRewritePath)) c.Pipeline.SkipFileTypeCheck = true;
         }
 
-
+        /// <summary>
+        /// Removes the plugin from the given configuration container
+        /// </summary>
+        /// <param name="c"></param>
+        /// <returns></returns>
         public bool Uninstall(Configuration.Config c) {
             c.Plugins.remove_plugin(this);
             c.Pipeline.RewriteDefaults -= Pipeline_RewriteDefaults;
@@ -98,8 +111,10 @@ namespace ImageResizer.Plugins.RemoteReader {
             path = null;
             //Turn URI instances into streams
             if (source is Uri) {
-                path = ((Uri)source).ToString();
-                return SeekableStreamWrapper.FromStream(GetUriStream((Uri)source), ref disposeStream);
+                using (var s = GetUriStream(source as Uri))
+                {
+                    return s.CopyToMemoryStream();
+                }
             }
             return null;
         }
@@ -246,7 +261,7 @@ namespace ImageResizer.Plugins.RemoteReader {
             if (rr == null || string.IsNullOrEmpty(domain)) return false;
 
             foreach (Node n in rr.childrenByName("allow")) {
-                bool onlyWhenSigned = NameValueCollectionExtensions.Get(n.Attrs, "onlyWhenSigned", false);
+                bool onlyWhenSigned = n.Attrs.Get("onlyWhenSigned", false);
                 if (onlyWhenSigned && !request.SignedRequest) continue;
 
                 bool hostMatches = false, regexMatches = false;
@@ -343,9 +358,73 @@ namespace ImageResizer.Plugins.RemoteReader {
                 throw e;
             } 
         }
+
+        /// <summary>
+        /// Returns a stream of the HTTP response to the specified URL with a 15 second timeout. 
+        /// Throws a FileNotFoundException instead of a WebException for 404 errors.
+        /// Can throw a variety of exceptions: ProtocolViolationException, WebException,  FileNotFoundException,
+        /// SecurityException, NotSupportedException?, and InvalidOperationException?.
+        /// </summary>
+        /// <param name="uri"></param>
+        /// <param name="maxRedirects"></param>
+        /// <returns></returns>
+        public async Task<Stream> GetUriStreamAsync(Uri uri, int maxRedirects = -1)
+        {
+            if (maxRedirects == -1) maxRedirects = AllowedRedirects;
+
+            HttpWebResponse response = null;
+            try
+            {
+                HttpWebRequest request = (HttpWebRequest)WebRequest.Create(uri);
+                request.Timeout = 15000; //Default to 15 seconds. Browser timeout is usually 30.
+                request.AllowAutoRedirect = maxRedirects != 0;
+                request.MaximumAutomaticRedirections = maxRedirects > 0 ? maxRedirects : 0;
+                //This is IDisposable, but only disposes the stream we are returning. So we can't dispose it, and don't need to
+                response = await request.GetResponseAsync() as HttpWebResponse;
+                return response.GetResponseStream();
+            }
+            catch (WebException e)
+            {
+                var resp = e.Response as HttpWebResponse;
+
+                if (e.Status == WebExceptionStatus.ProtocolError && resp != null)
+                {
+                    if (resp.StatusCode == HttpStatusCode.NotFound) throw new FileNotFoundException("404 error: \"" + uri.ToString() + "\" not found.", e);
+
+                    if (resp.StatusCode == HttpStatusCode.Forbidden) throw new HttpException(403, "403 Not Authorized (from remote server) for : \"" + uri.ToString() + "\".", e);
+                }
+                //if (resp != null)resp.Close();
+                if (response != null) response.Close();
+                throw e;
+            }
+        }
+
+
+        public Task<bool> FileExistsAsync(string virtualPath, NameValueCollection queryString)
+        {
+            return Task.FromResult(FileExists(virtualPath, queryString));
+        }
+
+        public Task<IVirtualFileAsync> GetFileAsync(string virtualPath, NameValueCollection queryString)
+        {
+            RemoteRequestEventArgs request = ParseRequest(virtualPath, queryString);
+            if (request == null) throw new FileNotFoundException();
+
+            if (request.SignedRequest && c.get("remotereader.allowAllSignedRequests", false)) request.DenyRequest = false;
+
+            //Check the whitelist
+            if (request.DenyRequest && IsWhitelisted(request)) request.DenyRequest = false;
+
+            //Fire event
+            if (AllowRemoteRequest != null) AllowRemoteRequest(this, request);
+
+            if (request.DenyRequest) throw new ImageProcessingException(403, "The specified remote URL is not permitted.");
+
+            return Task.FromResult<IVirtualFileAsync>(new RemoteSiteFile(virtualPath, request, this));
+        }
     }
 
-    public class RemoteSiteFile : IVirtualFile, IVirtualFileSourceCacheKey {
+    public class RemoteSiteFile : IVirtualFile, IVirtualFileSourceCacheKey, IVirtualFileAsync {
 
         protected string virtualPath;
         protected RemoteReaderPlugin parent;
@@ -362,11 +441,22 @@ namespace ImageResizer.Plugins.RemoteReader {
         }
 
         public System.IO.Stream Open() {
-            return SeekableStreamWrapper.FromStream(parent.GetUriStream(new Uri(this.request.RemoteUrl)));
+            using (var s = parent.GetUriStream(new Uri(this.request.RemoteUrl)))
+            {
+                return s.CopyToMemoryStream();
+            }
         }
 
         public string GetCacheKey(bool includeModifiedDate) {
             return this.request.RemoteUrl;
+        }
+
+        public async Task<Stream> OpenAsync()
+        {
+            using (var s = await parent.GetUriStreamAsync(new Uri(this.request.RemoteUrl)))
+            {
+                return s.CopyToMemoryStream();
+            }
         }
     }
 }

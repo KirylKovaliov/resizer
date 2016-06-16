@@ -1,22 +1,60 @@
+// Copyright (c) Imazen LLC.
+// No part of this project, including this file, may be copied, modified,
+// propagated, or distributed except as permitted in COPYRIGHT.txt.
+// Licensed under the Apache License, Version 2.0.
 ﻿using System;
 using System.Collections.Generic;
-using System.Text;
 using System.IO;
 using ImageResizer.Util;
 using System.Globalization;
+using ImageResizer.ExtensionMethods;
+using ImageResizer.Plugins;
 
 namespace ImageResizer {
 
     public class ImageJob {
+
+        private class NullProfiler : IProfiler
+        {
+
+            public bool Active
+            {
+                get { return false; }
+            }
+
+            public void Start(string segmentName, bool assertStopped = true)
+            {
+            }
+
+            public bool IsRunning(string segmentName)
+            {
+                return false;
+            }
+
+            public void Stop(string segmentName, bool assertRunning = true, bool stopChildren = false)
+            {
+              
+            }
+
+
+            public void LogStart(long ticks, string segmentName, bool allowRecursion = false)
+            {
+                throw new NotImplementedException();
+            }
+
+            public void LogStop(long ticks, string segmentName, bool assertRunning = true, bool stopChildren = false)
+            {
+                throw new NotImplementedException();
+            }
+        }
         public ImageJob() {
             this.RequestedInfo = new List<string>();
             this.ResultInfo = new Dictionary<string, object>();
+            this.Profiler = new NullProfiler();
         }
 
-        public ImageJob(object source, object dest, Instructions instructions)
+        public ImageJob(object source, object dest, Instructions instructions):this()
         {
-            this.RequestedInfo = new List<string>();
-            this.ResultInfo = new Dictionary<string, object>();
             this.Source = source;
             this.Dest = dest;
             this.Instructions = instructions;
@@ -40,12 +78,11 @@ namespace ImageResizer {
         /// </summary>
         /// <param name="source"></param>
         /// <param name="requestedImageInfo">Pass null to use "source.width","source.height", "result.ext","result.mime". </param>
-        public ImageJob(object source, IEnumerable<string> requestedImageInfo)
+        public ImageJob(object source, IEnumerable<string> requestedImageInfo):this()
         {
             this.Source = source;
             this.Dest = typeof(IDictionary<string, object>);
             this.RequestedInfo = new List<string>(requestedImageInfo == null ? new string[]{"source.width","source.height", "result.ext","result.mime"} : requestedImageInfo);
-            this.ResultInfo = new Dictionary<string, object>();
             this.Instructions = new Instructions();
         }
 
@@ -114,20 +151,30 @@ namespace ImageResizer {
         /// <summary>
         /// The width, in pixels, of the first frame or page in the source image file
         /// </summary>
-        public int? SourceWidth { get { return DictionaryUtils.GetValueOrDefault<int?>(ResultInfo, "source.width", null); } }
+        public int? SourceWidth { get { return ResultInfo.Get<int?>("source.width", null); } }
         /// <summary>
         /// The height, in pixels, of the first frame or page in the source image file
         /// </summary>
-        public int? SourceHeight { get { return DictionaryUtils.GetValueOrDefault<int?>(ResultInfo, "source.height", null); } }
+        public int? SourceHeight { get { return ResultInfo.Get<int?>("source.height", null); } }
+
+        /// <summary>
+        /// The width, in pixels, of the first frame or page in the final image file
+        /// </summary>
+        public int? FinalWidth { get { return ResultInfo.Get<int?>("final.width", null); } }
+        /// <summary>
+        /// The height, in pixels, of the first frame or page in the final image file
+        /// </summary>
+        public int? FinalHeight { get { return ResultInfo.Get<int?>("final.height", null); } }
+
 
         /// <summary>
         /// The correct file extension for the resulting file stream, without a leading dot. Will be null if the result is not an encoded image.
         /// </summary>
-        public string ResultFileExtension { get { return DictionaryUtils.GetValueOrDefault<string>(ResultInfo, "result.ext", null); } }
+        public string ResultFileExtension { get { return ResultInfo.Get<string>("result.ext", null); } }
         /// <summary>
         /// The correct mime type for the resulting file stream, without a leading dot. Will be null if the result is not an encoded image.
         /// </summary>
-        public string ResultMimeType { get { return DictionaryUtils.GetValueOrDefault<string>(ResultInfo, "result.mime", null); } }
+        public string ResultMimeType { get { return ResultInfo.Get<string>("result.mime", null); } }
 
 
 
@@ -141,9 +188,27 @@ namespace ImageResizer {
         }
 
         /// <summary>
+        /// The profiler to report start/stop events to.
+        /// </summary>
+        public IProfiler Profiler{get;set;}
+
+        /// <summary>
         /// The image processing instructions
         /// </summary>
         public Instructions Instructions { get; set; }
+
+
+        public string InstructionsAsString
+        {
+            get
+            {
+                return Instructions.ToQueryString();
+            }
+            set
+            {
+                Instructions = new Instructions(value);
+            }
+        }
 
         private bool _disposeSourceObject = true;
         /// <summary>

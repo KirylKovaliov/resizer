@@ -1,4 +1,9 @@
-﻿using System;
+// Copyright (c) Imazen LLC.
+// No part of this project, including this file, may be copied, modified,
+// propagated, or distributed except as permitted in COPYRIGHT.txt.
+// Licensed under the GNU Affero General Public License, Version 3.0.
+// Commercial licenses available at http://imageresizing.net/
+using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Collections.Specialized;
@@ -21,9 +26,9 @@ namespace ImageResizer.Plugins.Watermark {
             Width = DistanceUnit.TryParse(settings["width"]);
             Height = DistanceUnit.TryParse(settings["height"]);
             if (!string.IsNullOrEmpty(settings["relativeTo"])) RelativeTo = settings["relativeTo"];
-            DrawAs = NameValueCollectionExtensions.Get(settings, "drawAs", DrawAs);
-            Align = NameValueCollectionExtensions.Get(settings, "align", Align);
-            Fill = NameValueCollectionExtensions.Get(settings, "fill", false);
+            DrawAs = settings.Get( "drawAs", DrawAs);
+            Align = settings.Get("align", Align);
+            Fill = settings.Get("fill", false);
         }
 
         public virtual void CopyTo(Layer other) {
@@ -154,7 +159,7 @@ namespace ImageResizer.Plugins.Watermark {
         /// (defaults false). When true, the image or text will attempt to fill 1 of the layer's bounds, even if upscaling is required. 
         /// When Width is not specified, and both left and right are not specififed, this causes the image to fill the container width (if possible).
         /// When Height is not specified, and both top and bottom are not specififed, this causes the image to fill the container height (if possible).
-        /// This causes &scale=both to be used on images unless another setting is specified in imageQuery.
+        /// This causes &amp;scale=both to be used on images unless another setting is specified in imageQuery.
         /// </summary>
         public bool Fill {
             get { return _fill; }
@@ -180,6 +185,8 @@ namespace ImageResizer.Plugins.Watermark {
         /// 
         /// </summary>
         /// <param name="s"></param>
+        /// <param name="actualSizeCalculator"></param>
+        /// <param name="forceInsideCanvas"></param>
         /// <returns></returns>
         public RectangleF CalculateLayerCoordinates(ImageState s, CalculateLayerContentSize actualSizeCalculator, bool forceInsideCanvas) {
             //Find container 

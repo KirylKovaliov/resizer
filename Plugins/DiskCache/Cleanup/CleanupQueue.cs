@@ -1,4 +1,4 @@
-﻿/* Copyright (c) 2011 Nathanael Jones. See license.txt for your rights. */
+﻿/* Copyright (c) 2014 Imazen See license.txt for your rights. */
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -19,6 +19,7 @@ namespace ImageResizer.Plugins.DiskCache.Cleanup {
                 queue.AddLast(item);
             }
         }
+
         /// <summary>
         /// Queues the item if no other identical items exist in the queue. Returns true if the item was added.
         /// </summary>
@@ -44,8 +45,10 @@ namespace ImageResizer.Plugins.DiskCache.Cleanup {
         }
         public void QueueRange(IEnumerable<CleanupWorkItem> items) {
             lock (_sync) {
-                foreach(CleanupWorkItem item in items)  
+                foreach (CleanupWorkItem item in items)
+                {
                     queue.AddLast(item);
+                }
             }
         }
         /// <summary>
@@ -57,7 +60,10 @@ namespace ImageResizer.Plugins.DiskCache.Cleanup {
             lock (_sync) {
                 ReverseEnumerable<CleanupWorkItem> reversed = new ReverseEnumerable<CleanupWorkItem>(new System.Collections.ObjectModel.ReadOnlyCollection<CleanupWorkItem>(items));
                 foreach (CleanupWorkItem item in reversed)
+                {
                     queue.AddFirst(item);
+
+                }
             }
         }
         public CleanupWorkItem Pop() {

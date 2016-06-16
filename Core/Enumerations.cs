@@ -1,4 +1,8 @@
-﻿/* Copyright (c) 2011 Nathanael Jones. See license.txt */
+// Copyright (c) Imazen LLC.
+// No part of this project, including this file, may be copied, modified,
+// propagated, or distributed except as permitted in COPYRIGHT.txt.
+// Licensed under the Apache License, Version 2.0.
+﻿
 using System;
 using ImageResizer.ExtensionMethods;
 
@@ -255,7 +259,7 @@ namespace ImageResizer {
         [EnumString("false")]
         None = 0,
         /// <summary>
-        /// The recommended value. Y and NTSC are identical.
+        /// The reccomended value. Y and NTSC are identical.
         /// </summary>
         [EnumString("true")]
         Y = 1,

@@ -1,4 +1,8 @@
-﻿/* Copyright (c) 2011 Nathanael Jones. See license.txt */
+// Copyright (c) Imazen LLC.
+// No part of this project, including this file, may be copied, modified,
+// propagated, or distributed except as permitted in COPYRIGHT.txt.
+// Licensed under the Apache License, Version 2.0.
+﻿
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -70,7 +74,13 @@ namespace ImageResizer.Configuration {
             new ImageResizer.Plugins.Basic.NoCache().Install(this);
             new ImageResizer.Plugins.Basic.ClientCache().Install(this);
             new ImageResizer.Plugins.Basic.Diagnostic().Install(this);
-            if (isAspNet) new ImageResizer.Plugins.Basic.SizeLimiting().Install(this);
+            
+            if (isAspNet)
+            {
+                new ImageResizer.Plugins.Basic.WebConfigLicenseReader().Install(this);
+                new ImageResizer.Plugins.Basic.SizeLimiting().Install(this);
+                new ImageResizer.Plugins.Basic.MvcRoutingShimPlugin().Install(this);
+            }
 
             //Load plugins immediately. Lazy plugin loading causes problems.
             plugins.LoadPlugins();
@@ -123,6 +133,11 @@ namespace ImageResizer.Configuration {
             }
         }
 
+        public ImageJob Build(ImageJob job)
+        {
+            return CurrentImageBuilder.Build(job);
+        }
+
         /// <summary>
         /// Shortuct to CurrentImageBuilder.Build (Useful for COM clients). Also creates a destination folder if needed, unlike the normal .Build() call.
         /// 
@@ -142,6 +157,7 @@ namespace ImageResizer.Configuration {
             }
             CurrentImageBuilder.Build(source, dest, new ResizeSettings(settings));
         }
+
 
         protected void InvalidateImageBuilder() {
             lock (_imageBuilderSync) if (_imageBuilder != null) _imageBuilder = _imageBuilder.Create(plugins.ImageBuilderExtensions, plugins,pipeline,pipeline);

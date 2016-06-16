@@ -1,3 +1,8 @@
+// Copyright (c) Imazen LLC.
+// No part of this project, including this file, may be copied, modified,
+// propagated, or distributed except as permitted in COPYRIGHT.txt.
+// Licensed under the GNU Affero General Public License, Version 3.0.
+// Commercial licenses available at http://imageresizing.net/
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
@@ -14,17 +19,32 @@ using System.Collections.Specialized;
 using ImageResizer.Plugins.CropAround;
 
 namespace ImageResizer.Plugins.Faces {
+    /// <summary>
+    /// Human face detection plugin. Provides automatic face detection, as well as the CropAround plugin, which can even be combined in a single request (using &amp;c.focus=faces) to provide face-focused/face-preserving cropping.
+    /// </summary>
     public class FacesPlugin:BuilderExtension,IPlugin,IQuerystringPlugin {
+        /// <summary>
+        /// Creates a new instance of the Faces plugin.
+        /// </summary>
         public FacesPlugin() {
         }
         protected Config c;
+        /// <summary>
+        /// Adds the plugin to the given configuration container.
+        /// </summary>
+        /// <param name="c"></param>
+        /// <returns></returns>
         public IPlugin Install(Configuration.Config c) {
             c.Plugins.add_plugin(this);
             this.c = c;
             c.Pipeline.PreHandleImage += Pipeline_PreHandleImage;
             return this;
         }
-
+        /// <summary>
+        /// Removes the plugin from the given configuration container.
+        /// </summary>
+        /// <param name="c"></param>
+        /// <returns></returns>
         public bool Uninstall(Configuration.Config c) {
             c.Plugins.remove_plugin(this);
             c.Pipeline.PreHandleImage -= Pipeline_PreHandleImage;
@@ -89,7 +109,7 @@ namespace ImageResizer.Plugins.Faces {
                 //Write the face points as focus values
                 List<double> focusPoints = new List<double>();
                 foreach (Face r in faces) { focusPoints.Add(r.X); focusPoints.Add(r.Y); focusPoints.Add(r.X2); focusPoints.Add(r.Y2); }
-                NameValueCollectionExtensions.SetList<double>(s.settings, "c.focus", focusPoints.ToArray(), false);
+                s.settings.SetList<double>("c.focus", focusPoints.ToArray(), false);
             }
             return RequestedAction.None;
         }
@@ -124,8 +144,8 @@ namespace ImageResizer.Plugins.Faces {
 
 
         protected override RequestedAction Render(ImageState s) {
-            bool detect = NameValueCollectionExtensions.Get(s.settings, "f.detect", false);
-            bool getlayout = NameValueCollectionExtensions.Get(s.settings, "f.getlayout", false);
+            bool detect = s.settings.Get("f.detect", false);
+            bool getlayout = s.settings.Get("f.getlayout", false);
             if (!detect && !getlayout) return RequestedAction.None;
 
 
@@ -150,8 +170,8 @@ namespace ImageResizer.Plugins.Faces {
         /// <param name="context"></param>
         /// <param name="e"></param>
         void Pipeline_PreHandleImage(System.Web.IHttpModule sender, System.Web.HttpContext context, Caching.IResponseArgs e) {
-            bool detect = NameValueCollectionExtensions.Get(e.RewrittenQuerystring, "f.detect", false);
-            bool getlayout = NameValueCollectionExtensions.Get(e.RewrittenQuerystring, "f.getlayout", false);
+            bool detect = e.RewrittenQuerystring.Get("f.detect", false);
+            bool getlayout = e.RewrittenQuerystring.Get("f.getlayout", false);
             if (!detect && !getlayout) return;
 
             DetectionResponse<Face>.InjectExceptionHandler(e as ResponseArgs);
@@ -162,7 +182,7 @@ namespace ImageResizer.Plugins.Faces {
             var f = new FaceDetection();
 
             //Parse min/max faces
-            int[] count = NameValueCollectionExtensions.GetList<int>(s,"f.faces",null,1,2);
+            int[] count = s.GetList<int>("f.faces",null,1,2);
             if (count == null) {
                 f.MinFaces = 1;
                 f.MaxFaces = 8;
@@ -172,17 +192,17 @@ namespace ImageResizer.Plugins.Faces {
             }
 
             //Parse min/default thresholds
-            int[] threshold = NameValueCollectionExtensions.GetList<int>(s,"f.threshold",null,1,2);
+            int[] threshold = s.GetList<int>("f.threshold",null,1,2);
             if (threshold != null && threshold.Length > 0){
                 f.MinConfidenceLevel = f.ConfidenceLevelThreshold = threshold[0];
                 if (threshold.Length > 1) f.ConfidenceLevelThreshold = threshold[1];
             }
 
             //Parse min size percent
-            f.MinSizePercent = NameValueCollectionExtensions.Get<float>(s,"f.minsize",f.MinSizePercent);
+            f.MinSizePercent = s.Get<float>("f.minsize",f.MinSizePercent);
 
             //Parse expandsion rules
-            double[] expand = NameValueCollectionExtensions.GetList<double>(s, "f.expand", null, 1, 2);
+            double[] expand = s.GetList<double>("f.expand", null, 1, 2);
 
             //Exapnd bounding box by requested percentage
             if (expand != null) {
@@ -193,7 +213,10 @@ namespace ImageResizer.Plugins.Faces {
 
             return f;
         }
-
+        /// <summary>
+        /// Returns the querystrings command keys supported by this plugin. 
+        /// </summary>
+        /// <returns></returns>
         public  IEnumerable<string> GetSupportedQuerystringKeys() {
             return new string[] { "f.show", "f.detect","f.faces", "f.threshold", "f.minsize", "f.expand"};
         }

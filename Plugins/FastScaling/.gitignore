@@ -1,0 +1,14 @@
+libfastscaling.so
+test_program
+theft_test
+fastscaling
+*.d
+*.o
+*.lastcodeanalysissucceeded
+*.nativecodeanalysis.xml
+*.nativecodeanalysis.all.xml
+*.exe
+*.lib.lastcodeanalysissucceeded
+*.Test.exe
+callgrind.out.*
+*dSYM*

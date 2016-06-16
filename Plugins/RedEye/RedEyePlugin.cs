@@ -1,3 +1,8 @@
+// Copyright (c) Imazen LLC.
+// No part of this project, including this file, may be copied, modified,
+// propagated, or distributed except as permitted in COPYRIGHT.txt.
+// Licensed under the GNU Affero General Public License, Version 3.0.
+// Commercial licenses available at http://imageresizing.net/
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
@@ -15,11 +20,22 @@ using ImageResizer.Plugins.Faces;
 using ImageResizer.Caching;
 
 namespace ImageResizer.Plugins.RedEye {
+    /// <summary>
+    /// Provides automatic and manual red-eye detection and correction. 
+    /// </summary>
     public class RedEyePlugin : BuilderExtension, IPlugin, IQuerystringPlugin {
+        /// <summary>
+        /// Creates a new instance of RedEyePlugin
+        /// </summary>
         public RedEyePlugin() {
         }
 
         protected Config c;
+        /// <summary>
+        /// Adds the plugin to the given configuration container
+        /// </summary>
+        /// <param name="c"></param>
+        /// <returns></returns>
         public IPlugin Install(Configuration.Config c) {
             c.Plugins.add_plugin(this);
             this.c = c;
@@ -27,6 +43,11 @@ namespace ImageResizer.Plugins.RedEye {
             return this;
         }
 
+        /// <summary>
+        /// Removes the plugin from the given configuration container
+        /// </summary>
+        /// <param name="c"></param>
+        /// <returns></returns>
         public bool Uninstall(Configuration.Config c) {
             c.Plugins.remove_plugin(this);
             c.Pipeline.PreHandleImage -= Pipeline_PreHandleImage;
@@ -58,7 +79,7 @@ namespace ImageResizer.Plugins.RedEye {
             if (s.sourceBitmap == null) return RequestedAction.None;
 
             if (!string.IsNullOrEmpty(s.settings["r.eyes"])) {
-                double[] eyes = NameValueCollectionExtensions.GetList<double>(s.settings, "r.eyes", 0);
+                double[] eyes = s.settings.GetList<double>("r.eyes", 0);
                 // lock source bitmap data
                 BitmapData data = s.sourceBitmap.LockBits(
                     new Rectangle(0, 0, s.sourceBitmap.Width, s.sourceBitmap.Height),
@@ -139,12 +160,17 @@ namespace ImageResizer.Plugins.RedEye {
         /// <param name="context"></param>
         /// <param name="e"></param>
         void Pipeline_PreHandleImage(System.Web.IHttpModule sender, System.Web.HttpContext context, Caching.IResponseArgs e) {
-            if (NameValueCollectionExtensions.Get(e.RewrittenQuerystring, "r.detecteyes", false) ||
-                NameValueCollectionExtensions.Get(e.RewrittenQuerystring, "r.getlayout", false)) {
+            if (e.RewrittenQuerystring.Get("r.detecteyes", false) ||
+                e.RewrittenQuerystring.Get("r.getlayout", false))
+            {
                 DetectionResponse<ObjRect>.InjectExceptionHandler(e as ResponseArgs);
             }
         }
 
+        /// <summary>
+        /// Returns the querystrings command keys supported by this plugin. 
+        /// </summary>
+        /// <returns></returns>
         public  IEnumerable<string> GetSupportedQuerystringKeys() {
             return new string[] { "r.detecteyes", "r.getlayout", "r.conv","r.econv","r.sn","r.canny","r.threshold","r.sobel","r.filter","r.eyes","r.autoeyes"};
         }

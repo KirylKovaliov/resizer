@@ -1,4 +1,4 @@
-﻿/* Copyright (c) 2011 Nathanael Jones. See license.txt for your rights */
+﻿/* Copyright (c) 2014 Imazen See license.txt for your rights */
 
 using System;
 using System.Threading;
@@ -123,6 +123,10 @@ namespace ImageResizer.Plugins.BatchZipper
             return s;
         }
     }
+
+    /// <summary>
+    /// Gives the result: success or failure to create a .zip. Also gives a snapshot of the job's statistics.
+    /// </summary>
     public class JobResult
     {
         private bool successful;

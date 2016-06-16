@@ -1,12 +1,9 @@
-Everything exciting is happening on the [develop branch. Why not head over there?](https://github.com/imazen/resizer/tree/develop)
-
-<a name="v3"></a><a name="top"></a>
+<a name="top"></a>
 
 ## [ImageResizer](http://imageresizing.net) - The Flexible Image Server
+[![Build status - develop](https://ci.appveyor.com/api/projects/status/77a52n4hd0y36ybs/branch/develop?svg=true&passingText=develop%20-%20passing&failingText=develop%20-%20failed)](https://ci.appveyor.com/project/imazen/resizer/branch/develop) [![valgrind-develop](https://img.shields.io/travis/imazen/resizer/develop.svg?label=valgrind%20-%20develop)](https://travis-ci.org/imazen/resizer/builds) &nbsp; View ReadMe for [latest (develop)](https://github.com/imazen/resizer/tree/develop#top), [stable (master)](https://github.com/imazen/resizer/tree/master#top), [v2](https://github.com/imazen/resizer/tree/support/v2#top), [v3]( https://github.com/imazen/resizer/tree/support/v3#top) and [v4](https://github.com/imazen/resizer/tree/support/v4#top).
 
-![Issue Count](http://img.shields.io/github/issues/imazen/resizer.svg)[![Issues ready for work](https://badge.waffle.io/imazen/resizer.png?label=ready&title=Issues%20ready%20for%20work&svg=true)](https://waffle.io/imazen/resizer) View ReadMe for [latest](https://github.com/imazen/resizer/tree/develop#top), [stable](https://github.com/imazen/resizer/tree/master#top), [v2](https://github.com/imazen/resizer/tree/support/v2#top), [v3](https://github.com/imazen/resizer/tree/support/v3#top), and [v4](https://github.com/imazen/resizer/tree/support/v4#top).
-
-[![Gitter](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/imazen/resizer?utm_source=badge&utm_medium=```c#badge&utm_campaign=pr-badge) ![ImageResizer core downloads](http://img.shields.io/nuget/dt/ImageResizer.svg) ![Latest NuGet version](http://img.shields.io/nuget/vpre/ImageResizer.svg)
+[![Gitter](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/imazen/resizer?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge) ![ImageResizer core downloads](http://img.shields.io/nuget/dt/ImageResizer.svg) ![Latest NuGet version](http://img.shields.io/nuget/vpre/ImageResizer.svg) ![Issue Count](http://img.shields.io/github/issues/imazen/resizer.svg) [![Issues ready for work](https://badge.waffle.io/imazen/resizer.png?label=ready&title=up for grabs&svg=true)](https://waffle.io/imazen/resizer)
 
 # What is it?
 
@@ -20,9 +17,13 @@ ImageResizer has a very simple (and powerful) URL API.
 
 For more informaiton, [check out our website](http://www.imageresizing.net). To contribute, see [CONTRIBUTING](https://github.com/imazen/resizer/blob/develop/CONTRIBUTING.md).
 
-#### License
+#### Changes
 
-See [license.txt](license.txt).
+We've made some major changes in V.4. Check out our [changelog](https://github.com/imazen/resizer/blob/develop/CHANGES.md) for more details.
+
+#### License
+Over half of ImageResizer's plugins are available under the Apache 2.0 license. See [license.txt for details]( https://github.com/imazen/resizer/blob/develop/license.txt).
+
 
 # Table of Contents
 2. [Getting Started](#getting_started)
@@ -59,8 +60,6 @@ We use submodules - clone with `git clone -b develop --recursive https://github.
 
 ## Basic Installation Guide
 
-**Important!**: The MVC Routing plugin is required on .NET4+
-
 #### Install from NuGet
 
 Nearly all [ImageResizer plugins are on NuGet (33+)](https://www.nuget.org/packages?q=nathanaeljones). [You can enable source symbols from symbolsource.org](http://www.symbolsource.org/Public/Home/VisualStudio) for an enhanced debugging experience.
@@ -71,7 +70,6 @@ Get the basics:
 PM> Install-Package ImageResizer.WebConfig
 PM> Install-Package ImageResizer.Plugins.DiskCache
 PM> Install-Package ImageResizer.Plugins.PrettyGifs
-PM> Install-Package ImageResizer.MvcWebConfig
 ```
 
 <a name="install_plugin"></a>
@@ -133,10 +131,10 @@ The following is a list of all plugins currently available on ImageResizer, and 
 * [SQLReader plugin](http://www.imageresizing.net/plugins/sqlreader) - Process and resize images located in a MS SQL database. Extremely configurable, can work with nearly any database schema. A VirtualPathProvider.
 * [PrettyGifs plugin](http://www.imageresizing.net/plugins/prettygifs) - Get rid of ugly .NET GIFs, and get photoshop-like results for GIFs and 8-bit PNG images. Uses tuned octree quantization and smart, adjustable dithering.
 * [RemoteReader plugin](http://www.imageresizing.net/plugins/remotereader) - Allows images located on external servers to be securely resized and processed as if they existed locally.
+* [FastScaling plugin](http://www.imageresizing.net/plugins/fastscaling) - Offers up to 30x faster image resizing, and much higher quality.
 
 #### Essential License Plugin
 
-* [AutoRotate plugin](http://www.imageresizing.net/plugins/autorotate) (v3.1+) - Use the EXIF rotation data from the camera to auto-rotate your images.
 * [ClientCache plugin](http://www.imageresizing.net/plugins/clientcache) - (default) - Sets Cache-control, Expires, and Last-modified headers for optimum performance.
 * [Custom Overlay plugin](http://www.imageresizing.net/plugins/customoverlay) - **Example plugin. It is not subject to the same standards of maintenance and backwards-compatibility that normal plugins are.** This plugin is for drawing image overlays using pre-determined x1,y1,x2,y2,x3,y3,x4,y4 coordinates that are relative to the base file's width and height
 * [DefaultEncoder](http://www.imageresizing.net/plugins/defaultencoder) - (default) Adjustable jpeg compression, 24-bit PNG with transparency support, and standard .NET GIF encoding (which is very lousy).
@@ -150,7 +148,6 @@ The following is a list of all plugins currently available on ImageResizer, and 
 * [IEPngFix plugin](http://www.imageresizing.net/plugins/iepngfix)(New in V3.1.3) - Automatically serve GIF versions of PNG files to IE6 and below clients. Opt-in or opt-out, very configurable.
 * [Image404 plugin](http://www.imageresizing.net/plugins/image404) - Supply default images instead of a 404 when an image is missing.
 * [Logging plugin](http://www.imageresizing.net/plugins/logging)(v3.1+) - Allows logging through NLog.
-* [MvcRoutingShim plugin](http://www.imageresizing.net/plugins/mvcroutingshim) - Prevent MVC Routes from taking over the ImageResizer's requests.
 * [PdfRenderer](http://www.imageresizing.net/plugins/pdfrenderer) (New in V3.1.3)- Render PDFs to images dynamically, then crop or process them as an image.
 * [Presets plugin](http://www.imageresizing.net/plugins/presets) (v3.1+)- Created named settings groups and and reference them with ?preset=name instead of specifying them all in the URL.
 * [SizeLimiting plugin](http://www.imageresizing.net/plugins/sizelimiting) - (default) - Limit maximum resolution of photos, or the total size of all processed images.
@@ -162,6 +159,8 @@ The following is a list of all plugins currently available on ImageResizer, and 
 * [AzureReader plugin](http://www.imageresizing.net/plugins/azurereader) - Allows blobstore images to be resized and served. (Azure 1.X compatible) *Deprecated in favore of AzureReader2.* Available at the Performance level.
 * [S3Reader plugin](http://www.imageresizing.net/plugins/s3reader) - Process and resize images located on a remote Amazon S3 bucket. A VirtualPathProvider. Works best when combined with DiskCache. *Deprecated in favor of S3Reader2.* Available at the Performance level.
 * [PsdReader plugin](http://www.imageresizing.net/plugins/psdreader) - Adds support for PSD source files. *Deprecated in favor of FreeImageDecoder and PsdComposer.* Available at the Elite level.
+* [AutoRotate plugin](http://www.imageresizing.net/plugins/autorotate) - Use the EXIF rotation data from the camera to auto-rotate your images. Now inlcuded in Core, not a plugin.
+
 
 <a name="full_command"></a>
 
@@ -174,7 +173,7 @@ The following is a list of all plugins currently available on ImageResizer, and 
 
 #### Rotation & flipping
 
-* **autorotate=true** Automatically rotates the image based on the EXIF info from the camera. (Requires the [AutoRotate plugin](http://www.imageresizing.net/plugins/autorotate))
+* **autorotate=true** Automatically rotates the image based on the EXIF info from the camera. **autorotate.default=true** will only autorotate if the image is processed.
 * **sflip=none\|x\|y\|xy** Flips the source image prior to processing (new in V3.1).
 * **srotate=0\|90\|180\|270** Rotates the source image prior to processing (only 90 degree intervals) (new in V3.1).
 * **rotate=degrees** – Rotates the image any arbitrary angle (occurs after cropping).
@@ -371,7 +370,7 @@ You can also filter values. `<filename:A-Za-z0-9>` keeps only the alphanumeric c
 
 ## Configuration Reference
 
-The following is a basic, typical configuration, V3+. [Click here](http://www.imageresizing.net/docs/2to3/configuration) to see a configuration example that mimics the V2 defaults.
+The following is a basic, typical configuration of v4.
 
 ```xml
   <?xml version="1.0" encoding="utf-8" ?>
@@ -384,7 +383,7 @@ The following is a basic, typical configuration, V3+. [Click here](http://www.im
       <!-- Unless you (a) use Integrated mode, or (b) map all reqeusts to ASP.NET, 
            you'll need to add .ashx to your image URLs: image.jpg.ashx?width=200&height=20 
            Optional - this is the default setting -->
-      <pipeline fakeExtensions=".ashx" />
+      <pipeline fakeExtensions=".ashx" defaultCommands="autorotate.default=true" />
 
       <plugins>
         <add name="DiskCache" />
@@ -394,7 +393,7 @@ The following is a basic, typical configuration, V3+. [Click here](http://www.im
 
     <system.web>
       <httpModules>
-        <!-- This is for IIS5, IIS6, and IIS7 Classic, and Cassini/VS Web Server-->
+        <!-- This is for IIS7/8 Classic and Cassini-->
         <add name="ImageResizingModule" type="ImageResizer.InterceptModule"/>
       </httpModules>
     </system.web>
@@ -402,7 +401,7 @@ The following is a basic, typical configuration, V3+. [Click here](http://www.im
     <system.webServer>
       <validation validateIntegratedModeConfiguration="false"/>
       <modules>
-        <!-- This is for IIS7+ Integrated mode -->
+        <!-- This is for IIS7/8 Integrated mode -->
         <add name="ImageResizingModule" type="ImageResizer.InterceptModule"/>
       </modules>
     </system.webServer>
@@ -612,6 +611,7 @@ You may also have to **temporarily** change &lt;deployment retail to "False" for
 
 The customErrors setting is case-sensitive; use "Off", "On", and "RemoteOnly".
 
+
 <a name="self_diagnostics"></a>
 
 ## Accessing Self-Diagnostics
@@ -632,15 +632,11 @@ To override, add one of the following to the &lt;resizer&gt; section.
 
 ```
 
-#### ASP.NET MVC Notes
-
-If you can't access the diagnostics page, make sure the [MvcRoutingShim plugin](http://www.imageresizing.net/plugins/mvcroutingshim) is installed.
-
 <a name="troubleshooting_list"></a>
 
 ## What Might Be Wrong
 
-To get support or use this guide, make sure you get the detailed error message from visiting the image URL directly. This guide cannot offer a solution to a generic 500 error, 404 error, or a "broken image icon", as those symptoms are far too generic to be useful. 
+To get support or use this guide, make sure you get the detailed error message from visiting the image URL directly. This guide cannot offer a solution to a generic 500 error, 404 error, or a "broken image icon", as those symptoms are far too generic to be useful. The troubleshooting tips presented here are specific to v4. Switch to the v3 troubleshooting page if you are using v3.
 
 If this page doesn't resolve your issue, [visit the Support page](http://www.imageresizing.net/support) for information about the bug bounty and free support requirements.
 
@@ -656,18 +652,6 @@ Potential causes:
 2. You didn't copy ImageResizer.dll into the /bin folder.
 3. The ImageResizer.dll file in /bin is corrupt. Verify it has the correct file size and version number, or re-copy it from the download. 
 
-#### Blank page, invalid image error in browser, or Page cannot be displayed on image URL.
-
-If this happens when the image has a querystring:
-
-* You are using ASP.NET MVC, but do not have the [MvcRoutingShim](http://www.imageresizing.net/plugins/mvcroutingshim) plugin enabled. Both MVC and the ImageResizer are trying to answer the request, and corrupting the response.
-
-If this only happens when the image *doesn't* have a querystring, you're running IIS6, and you have mapped individual extensions to ASP.NET instead of wildcard mapping:
-
-* See [this fantastic Microsoft KB article for ways to fix this](http://support.microsoft.com/Default.aspx?kbid=909641).
-
-Keep reading if it's a `404: File Not Found error`
-
 #### The type or namespace name "ImageResizer" could not be found
 
 When using the ImageResizer from a .NET project that is not a web project you may get the following build error:
@@ -676,38 +660,22 @@ When using the ImageResizer from a .NET project that is not a web project you ma
 
 This is caused by using a Client Profile version of .NET instead of the Full version. You can change this in Project Properties -> Application -> Target Framework. The ImageResizer requires the full version, as it is also designed to support ASP.NET usage and references the System.Web assembly (which is not part of the client profile version of .NET).
 
-#### File not found
-
-Potential causes:
-
-1. You are using the .jpg.ashx syntax, and you did not register the HttpModule properly in both places of your Web.config file.
-2. You are using the .jpg.ashx syntax, but you're not using a query string. You should drop the '.ashx' unless you actually want to process the file.
-3. You are using ASP.NET MVC, but do not have the [MvcRoutingShim plugin](http://www.imageresizing.net/plugins/mvcroutingshim) installed.
-4. You have Precompilation enabled, and are using an image provider. [This is caused by a long-standing bug in the .NET framework](http://stackoverflow.com/questions/12397/net-virtualpathproviders-and-pre-compilation).
-
-#### File not found for JSON requests (Faces, RedEye plugins)
-
-1. You have not copied Newtonsoft.Json.dll into the /bin folder, and are using .NET 4.0.
-
 #### Image appears original size
 
 Potential causes: 
 
-1. You did not register the HttpModule properly in both places of your Web.config file.
-2. You are using IIS 6 (or earlier), or IIS7 Classic Pipeline, and are not using the .jpg.ashx syntax, and you have not [mapped all requests to the ASP.NET runtime](http://www.imageresizing.net/docs/cleanurls). 
-3. You are using ASP.NET MVC (and have conflicting routes), but do not have the [MvcRoutingShim plugin](http://www.imageresizing.net/plugins/mvcroutingshim) installed.
+1. You did not register the HttpModule properly in both places of your Web.config file. Verify you can access /resizer.debug. If not, this is the problem.
+2. You are the IIS Classic Pipeline, and are not using the .jpg.ashx syntax, and you have not [mapped all requests to the ASP.NET runtime](http://www.imageresizing.net/docs/cleanurls). 
 4. You are mistyping the querystring commands. 
 5. The original image is smaller than the size you are requesting, and you are not using `&scale=both` (The default behavior is to never upscale images, [but this can be changed](http://www.imageresizing.net/plugins/defaultsettings)).
 
-#### File not found only on images without a querystring
+#### File not found
 
-Possible causes
+Potential causes:
 
-1. You are using the .ashx syntax. This is normal; you should only add the .ashx suffix if you are also adding a querystring to tell ImageResizer to do something.
-
-2. The images are from S3 or Sql: The S3Reader and SqlReader plugins require AspNetHostingPermission to register themselves as VirtualPathProviders. If they lack permission, they register as IVirtualImageProviders instead - but then only the image resizer can find them, and the image resizer only accepts requests with a querystring that uses one of the defined commands.
-
-3. Alternatively, you may have a URL rewriting event that is affecting the path names.
+1. You did not register the HttpModule properly in both places of your Web.config file.  Verify you can access /resizer.debug. If not, this is the problem.
+2. You (a) aren't specifying a command string, (b) have Precompilation enabled, and (c) are using an image provider. [This is caused by a long-standing bug in the .NET framework](http://stackoverflow.com/questions/12397/net-virtualpathproviders-and-pre-compilation).
+3. You have a URL rewriting event that is affecting path names.
 
 #### This type of page is not served. (HTTP 403 error)
 
@@ -720,18 +688,6 @@ Possible causes
 
 This generic error message often hides a more descriptive message, but that message is always guaranteed to be a "Not Authorized To View this Content" kind of error.
 
-
-
-#### Method Not Found (System.MissingMethodException)
-
-  Server Error in '/' Application. 
-  ------------------------------ 
-  Method not found: 'Void System.Web.HttpContext.RemapHandler(System.Web.IHttpHandler)'.
-  Exception Details: System.MissingMethodException: Method not found: 'Void 
-  System.Web.HttpContext.RemapHandler(System.Web.IHttpHandler)'.
-  
-This error occurs when you do not have .NET 2.0 Service Pack 2 applied. No other conditions cause this error. The RemapHandler method was added in .NET 2.0 SP2, and is required by this product.
-Yes, it is possible to have .NET 3, 3.5, and .NET 4 installed (and up-to-date), yet not have .NET SP2 installed. This peculiar circumstance has been verified on over 5 machines.
 
 #### Server object error 'ASP 0178 : 80070005'
 
@@ -748,31 +704,6 @@ On IIS6, this [account is typically IUSR_ComputerName](http://www.microsoft.com/
 If that fails, providing Readonly access to the Everyone group should work, but that may not be acceptable if you have highly-isolated application pools which you don't want to be able to access the ImageResizer dlls files.
 
 If you still encounter issues, perform a reinstall with COMInstaller.exe, and save the install log. If the reinstall doesn't fix the problem, send the install log to support@imageresizing.net to get help with your issue.
-
-#### System.Security.SecurityException
-
-  System.Security.SecurityException: Request for the 
-  permission of type 'System.Configuration.ConfigurationPermission, 
-  System.Configuration, Version=2.0.0.0, Culture=neutral, 
-  PublicKeyToken=b03f5f7f11d50a3a' failed
-
-This can occur in certain medium or low trust environments. To correct, set `requirePermission="false"` on the resizer section declaration in Web.config.
-```xml
-  <?xml version="1.0" encoding="utf-8" ?>
-  <configuration>
-    <configSections>
-      <section name="resizer" type="ImageResizer.ResizerSection,ImageResizer" requirePermission="false" />
-    </configSections>
-    ...
-```
-
-#### Error parsing Web.Config
-
-If you are using NuGet and recently upgraded from an older release, there may be duplicate XML elements in Web.Config. Delete the one lacking the requirePermission="false" attribute.
-```xml
-  <section name="resizer" type="ImageResizer.ResizerSection"/>
-  <section name="resizer" type="ImageResizer.ResizerSection" requirePermission="false"/>
-```
 
 #### Quality loss when resizing 8-bit Grayscale Jpeg images
 
@@ -798,20 +729,7 @@ You must have the [PrettyGifs](http://www.imageresizing.net/plugins/prettygifs) 
 
 By default, ImageResizer limits the output size of images to 3200x3200. This can be changed [by configuring (or removing) the SizeLimiting plugin](http://www.imageresizing.net/plugins/sizelimiting).
 
-#### 0-byte response with status 200 returned when DiskCache is enabled
 
-IIS 7+ gives you granular control over which IIS components can be installed. If the Static Content module is not installed, you will get empty responses for disk-cached content. 
-
-If you have enabled asyncWrites, the first request per URL will succeed, but all subsequent operations will fail.
-
-You need at minimum the following IIS modules installed for correct operation:
-
-* Static Content
-* HTTP Errors
-* HTTP Redirection
-* URL Authorization
-* .NET Extensibility 4.5
-* ASP.NET 4.5
 
 <a name="everything_else"></a>
 

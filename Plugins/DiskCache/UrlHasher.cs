@@ -1,4 +1,4 @@
-﻿/* Copyright (c) 2011 Nathanael Jones. See license.txt */
+﻿/* Copyright (c) 2014 Imazen See license.txt */
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -18,9 +18,9 @@ namespace ImageResizer.Plugins.DiskCache {
         /// No extension is appended.
         /// I.e, a13514\124211ab132592 or 12412ababc12141
         /// </summary>
-		/// <param name="data"></param>
-		/// <param name="subfolders"></param>
-		/// <param name="dirSeparator"></param>
+        /// <param name="data"></param>
+        /// <param name="subfolders"></param>
+        /// <param name="dirSeparator"></param>
         /// <returns></returns>
         public string hash(string data, int subfolders, string dirSeparator) {
             
@@ -43,7 +43,7 @@ namespace ImageResizer.Plugins.DiskCache {
         /// Returns null if not configured. Rounds subfolders up to the nearest power of two.
         /// </summary>
         /// <param name="hash"></param>
-		/// <param name="subfolders"></param>
+        /// <param name="subfolders"></param>
         /// <returns></returns>
         protected string getSubfolder(byte[] hash, int subfolders) {
             int bits = (int)Math.Ceiling(Math.Log(subfolders, 2)); //Log2 to find the number of bits. round up.

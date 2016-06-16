@@ -1,4 +1,4 @@
-/* Copyright (c) 2011 Nathanael Jones. See license.txt for your rights. */
+/* Copyright (c) 2014 Imazen See license.txt for your rights. */
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -15,6 +15,7 @@ using ImageResizer.Plugins.Basic;
 using System.Security.Permissions;
 using System.Security;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace ImageResizer.Plugins.DiskCache
 {
@@ -33,13 +34,14 @@ namespace ImageResizer.Plugins.DiskCache
     /// <summary>
     /// Provides methods for creating, maintaining, and securing the disk cache. 
     /// </summary>
-    public class DiskCache: ICache, IPlugin, IIssueProvider, ILoggerProvider
+    public class DiskCache: IAsyncTyrantCache, ICache, IPlugin, IIssueProvider, ILoggerProvider, ILicensedPlugin
     {
-        private int subfolders = 32;
+
+        private int subfolders = 8192;
         /// <summary>
         /// Controls how many subfolders to use for disk caching. Rounded to the next power of to. (1->2, 3->4, 5->8, 9->16, 17->32, 33->64, 65->128,129->256,etc.)
         /// NTFS does not handle more than 8,000 files per folder well. Larger folders also make cleanup more resource-intensive.
-        /// Defaults to 32, which combined with the default setting of 400 images per folder, allows for scalability to 12,800 actively used image versions. 
+        /// Defaults to 8192, which combined with the default setting of 400 images per folder, allows for scalability to ~1.5 million actively used image versions. 
         /// For example, given a desired cache size of 100,000 items, this should be set to 256.
         /// </summary>
         public int Subfolders {
@@ -49,7 +51,7 @@ namespace ImageResizer.Plugins.DiskCache
 
         private bool enabled = true;
         /// <summary>
-        /// Allows disk caching to be disabled for debuginng purposes. Defaults to true.
+        /// Allows disk caching to be disabled for debugging purposes. Defaults to true.
         /// </summary>
         public bool Enabled {
             get { return enabled; }
@@ -76,7 +78,9 @@ namespace ImageResizer.Plugins.DiskCache
             set { BeforeSettingChanged(); cleanupStrategy = value; }
         }
 
-
+        /// <summary>
+        /// Sets the timeout time to 15 seconds as default.
+        /// </summary>
         protected int cacheAccessTimeout = 15000;
         /// <summary>
         /// How many milliseconds to wait for a cached item to be available. Values below 0 are set to 0. Defaults to 15 seconds.
@@ -87,18 +91,6 @@ namespace ImageResizer.Plugins.DiskCache
             set { BeforeSettingChanged(); cacheAccessTimeout = Math.Max(value,0); }
         }
 
-        private bool hashModifiedDate = true;
-        /// <summary>
-        /// If true, when a source file is changed, a new file will be created instead of overwriting the old cached file.
-        /// This helps prevent file lock contention on high-traffic servers. Defaults to true.  
-        /// Do NOT set this to false in a Web Garden or if you have overlapped recycle enabled, as you may risk having occasional failed requests due
-        /// to write contention by separate proccesses.
-        /// Changes the hash function, so you should delete the cache folder whenever this setting is modified.
-        /// </summary>
-        public bool HashModifiedDate {
-            get { return hashModifiedDate; }
-            set { BeforeSettingChanged(); hashModifiedDate = value; }
-        }
 
         private bool _asyncWrites = false;
         /// <summary>
@@ -177,15 +169,19 @@ namespace ImageResizer.Plugins.DiskCache
             Enabled = c.get("diskcache.enabled", Enabled);
             AutoClean = c.get("diskcache.autoClean", AutoClean);
             VirtualCacheDir = c.get("diskcache.dir", VirtualCacheDir);
-            HashModifiedDate = c.get("diskcache.hashModifiedDate", HashModifiedDate);
             CacheAccessTimeout = c.get("diskcache.cacheAccessTimeout", CacheAccessTimeout);
             AsyncBufferSize = c.get("diskcache.asyncBufferSize", AsyncBufferSize);
             AsyncWrites = c.get("diskcache.asyncWrites", AsyncWrites);
             CleanupStrategy.LoadFrom(c.getNode("cleanupStrategy"));
+            AsyncModuleMode = c.get("diskcache.asyncModuleMode", AsyncModuleMode);
         }
+       
+        public bool AsyncModuleMode {get; private set; }
 
         protected ILogger log = null;
         public ILogger Logger { get { return log; } }
+
+        private Config c;
         /// <summary>
         /// Loads the settings from 'c', starts the cache, and registers the plugin.
         /// Will throw an invalidoperationexception if already started.
@@ -193,6 +189,7 @@ namespace ImageResizer.Plugins.DiskCache
         /// <param name="c"></param>
         /// <returns></returns>
         public IPlugin Install(Config c) {
+            this.c = c;
             if (c.get("diskcache.logging", false)) {
                 if (c.Plugins.LogManager != null) 
                     log = c.Plugins.LogManager.GetLogger("ImageResizer.Plugins.DiskCache");
@@ -201,10 +198,16 @@ namespace ImageResizer.Plugins.DiskCache
                         if (log != null) log = c.Plugins.LogManager.GetLogger("ImageResizer.Plugins.DiskCache");
                     };
             }
+
+            bool? inAsyncMode = c.Pipeline.UsingAsyncMode;
+            if (inAsyncMode == null) throw new InvalidOperationException("You must set Config.Current.Pipeline.UsingAsyncMode before installing DiskCache");
+            this.AsyncModuleMode = inAsyncMode.Value;
+
             LoadSettings(c);
             Start();
             c.Pipeline.AuthorizeImage += Pipeline_AuthorizeImage;
             c.Plugins.add_plugin(this);
+            c.Plugins.GetOrInstall<ImageResizer.Plugins.LicenseVerifier.LicenseEnforcer<DiskCache>>();
             return this;
         }
 
@@ -213,6 +216,11 @@ namespace ImageResizer.Plugins.DiskCache
             if (e.VirtualPath.StartsWith(this.VirtualCacheDir, StringComparison.OrdinalIgnoreCase)) e.AllowAccess = false;
         }
 
+        /// <summary>
+        /// Removes the plugin from the given configuration container
+        /// </summary>
+        /// <param name="c"></param>
+        /// <returns></returns>
         public bool Uninstall(Config c) {
             c.Plugins.remove_plugin(this);
             c.Pipeline.AuthorizeImage -= Pipeline_AuthorizeImage;
@@ -232,12 +240,11 @@ namespace ImageResizer.Plugins.DiskCache
         /// </summary>
         /// <returns></returns>
         protected bool HasFileIOPermission() {
-            FileIOPermission writePermission = new FileIOPermission(FileIOPermissionAccess.AllAccess,new string[]{PhysicalCacheDir, Path.Combine(PhysicalCacheDir,"web.config")});
-            return SecurityManager.IsGranted(writePermission);
+            return PathUtils.HasIOPermission(new string[] { PhysicalCacheDir, Path.Combine(PhysicalCacheDir, "web.config") });
         }
-
         
         protected CustomDiskCache cache = null;
+        protected AsyncCustomDiskCache asyncCache = null;
         protected CleanupManager cleaner = null;
         protected WebConfigWriter writer = null;
 
@@ -260,11 +267,13 @@ namespace ImageResizer.Plugins.DiskCache
                 //Init the writer.
                 writer = new WebConfigWriter(this,PhysicalCacheDir);
                 //Init the inner cache
-                cache = new CustomDiskCache(this, PhysicalCacheDir, Subfolders, HashModifiedDate,AsyncBufferSize);
+                if (!AsyncModuleMode) cache = new CustomDiskCache(this, PhysicalCacheDir, Subfolders,AsyncBufferSize);
+                if (AsyncModuleMode) asyncCache = new AsyncCustomDiskCache(this, PhysicalCacheDir, Subfolders, AsyncBufferSize);
+
                 //Init the cleanup strategy
                 if (AutoClean && cleanupStrategy == null) cleanupStrategy = new CleanupStrategy(); //Default settings if null
                 //Init the cleanup worker
-                if (AutoClean) cleaner = new CleanupManager(this, cache, cleanupStrategy);
+                if (AutoClean) cleaner = new CleanupManager(this, AsyncModuleMode ? (ICleanableCache)asyncCache : (ICleanableCache)cache, cleanupStrategy);
                 //If we're running with subfolders, enqueue the cache root for cleanup (after the 5 minute delay)
                 //so we don't eternally 'skip' files in the root or in other unused subfolders (since only 'accessed' subfolders are ever cleaned ). 
                 if (cleaner != null) cleaner.CleanAll();
@@ -290,13 +299,19 @@ namespace ImageResizer.Plugins.DiskCache
             if (((ResizeSettings)e.RewrittenQuerystring).Cache == ServerCacheMode.No) return false;
             return Started;//Add support for nocache
         }
+        public bool CanProcess(HttpContext current, IAsyncResponsePlan e)
+        {
+            //Disk caching will 'pass on' caching requests if 'cache=no'.
+            if (new Instructions(e.RewrittenQuerystring).Cache == ServerCacheMode.No) return false;
+            return Started;//Add support for nocache
+        }
 
+        
 
         public void Process(HttpContext context, IResponseArgs e) {
-
+            if (this.AsyncModuleMode) throw new InvalidOperationException("DiskCache cannot be used in synchronous mode if AsyncModuleMode=true");
             CacheResult r = Process(e);
             context.Items["FinalCachedFile"] = r.PhysicalPath;
-
             if (r.Data == null) {
 
                 //Calculate the virtual path
@@ -312,19 +327,61 @@ namespace ImageResizer.Plugins.DiskCache
                 context.RemapHandler(new NoCacheHandler(e));
             }
         }
+        public async Task ProcessAsync(HttpContext context, IAsyncResponsePlan e)
+        {
+            if (!this.AsyncModuleMode) throw new InvalidOperationException("DiskCache cannot be used in asynchronous mode if AsyncModuleMode=false");
+            CacheResult r = await ProcessAsync(e);
+            context.Items["FinalCachedFile"] = r.PhysicalPath;
 
-        public CacheResult Process(IResponseArgs e) {
-            //Query for the modified date of the source file. If the source file changes on us during the write,
-            //we (may) end up saving the newer version in the cache properly, but with an older modified date.
-            //This will not cause any actual problems from a behavioral standpoint - the next request for the 
-            //image will cause the file to be overwritten and the modified date updated.
-            DateTime modDate = e.HasModifiedDate ? e.GetModifiedDateUTC() : DateTime.MinValue;
+            if (r.Data == null)
+            {
+
+                //Calculate the virtual path
+                string virtualPath = VirtualCacheDir.TrimEnd('/') + '/' + r.RelativePath.Replace('\\', '/').TrimStart('/');
+
+                //Rewrite to cached, resized image.
+                context.RewritePath(virtualPath, false);
+            }
+            else
+            {
+                //Remap the response args writer to use the existing stream.
+                e.CreateAndWriteResultAsync = delegate(Stream s, IAsyncResponsePlan plan)
+                {
+                    return ((MemoryStream)r.Data).CopyToAsync(s);
+                };
+                context.RemapHandler(new NoCacheAsyncHandler(e));
+            }
+        }
+
+
+        private async Task<CacheResult> ProcessAsync(IAsyncResponsePlan e)
+        {
 
             //Verify web.config exists in the cache folder.
             writer.CheckWebConfigEvery5();
 
             //Cache the data to disk and return a path.
-            CacheResult r = cache.GetCachedFile(e.RequestKey, e.SuggestedExtension, e.ResizeImageToStream, modDate, CacheAccessTimeout,AsyncWrites);
+            CacheResult r = await asyncCache.GetCachedFile(e.RequestCachingKey, e.EstimatedFileExtension, async delegate(Stream outStream){
+                await e.CreateAndWriteResultAsync(outStream, e);
+            }, CacheAccessTimeout, AsyncWrites);
+
+            //Fail
+            if (r.Result == CacheQueryResult.Failed)
+                throw new ImageResizer.ImageProcessingException("Failed to acquire a lock on file \"" + r.PhysicalPath + "\" within " + CacheAccessTimeout + "ms. Caching failed.");
+
+            if (r.Result == CacheQueryResult.Hit && cleaner != null)
+                cleaner.UsedFile(r.RelativePath, r.PhysicalPath);
+
+            return r;
+        }
+
+        public CacheResult Process(IResponseArgs e) {
+
+            //Verify web.config exists in the cache folder.
+            writer.CheckWebConfigEvery5();
+
+            //Cache the data to disk and return a path.
+            CacheResult r = cache.GetCachedFile(e.RequestKey, e.SuggestedExtension, e.ResizeImageToStream, CacheAccessTimeout,AsyncWrites);
 
             //Fail
             if (r.Result == CacheQueryResult.Failed)
@@ -343,7 +400,7 @@ namespace ImageResizer.Plugins.DiskCache
                 File.WriteAllText(testFile, "You may delete this file - it is written and deleted just to verify permissions are configured correctly");
                 File.Delete(testFile);
                 return true;
-            } catch (Exception e){
+            } catch (Exception){
                 return false;
             }
         }
@@ -360,6 +417,8 @@ namespace ImageResizer.Plugins.DiskCache
             List<IIssue> issues = new List<IIssue>();
             if (cleaner != null) issues.AddRange(cleaner.GetIssues());
 
+            if (!c.get("diskcache.hashModifiedDate", true)) issues.Add(new Issue("DiskCache", "V4.0 no longer supports hashModifiedDate=false. Please remove this attribute.", IssueSeverity.ConfigurationError));
+
             if (!HasFileIOPermission()) 
                 issues.Add(new Issue("DiskCache", "Failed to start: Write access to the cache directory is prohibited by your .NET trust level configuration.", 
                 "Please configure your .NET trust level to permit writing to the cache directory. Most medium trust configurations allow this, but yours does not.", IssueSeverity.ConfigurationError));
@@ -371,9 +430,6 @@ namespace ImageResizer.Plugins.DiskCache
             if (!Started && !Enabled) issues.Add(new Issue("DiskCache", "DiskCache is disabled in Web.config. Set enabled=true on the <diskcache /> element to fix.", null, IssueSeverity.ConfigurationError));
 
             //Warn user about setting hashModifiedDate=false in a web garden.
-            if (this.cleaner != null && cleaner.ExteralProcessCleaning && !this.HashModifiedDate)
-                issues.Add(new Issue("DiskCache", "You should set hashModifiedDate=\"true\" on the <diskcache /> element in Web.config.",
-                    "Setting false for this value in a Web Garden scenario can cause failed requests. (DiskCache detects one or more other process on this machine working on the same cache directory).", IssueSeverity.Critical));
             if (this.AsyncBufferSize < 1024 * 1024 * 2)
                 issues.Add(new Issue("DiskCache", "The asyncBufferSize should not be set below 2 megabytes (2097152). Found in the <diskcache /> element in Web.config.",
                     "A buffer that is too small will cause requests to be processed synchronously. Remember to set the value to at least 4x the maximum size of an output image.", IssueSeverity.ConfigurationError));
@@ -397,6 +453,16 @@ namespace ImageResizer.Plugins.DiskCache
             }
 
             return issues;
+        }
+
+
+
+        /// <summary>
+        /// Returns the license key feature codes that are able to activate this plugins.
+        /// </summary>
+        public IEnumerable<string> LicenseFeatureCodes
+        {
+            get { yield return "R4Performance"; yield return "R4DiskCache"; }
         }
     }
 }

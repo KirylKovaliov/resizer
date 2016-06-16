@@ -1,3 +1,8 @@
+// Copyright (c) Imazen LLC.
+// No part of this project, including this file, may be copied, modified,
+// propagated, or distributed except as permitted in COPYRIGHT.txt.
+// Licensed under the GNU Affero General Public License, Version 3.0.
+// Commercial licenses available at http://imageresizing.net/
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
@@ -20,6 +25,8 @@ using System.Globalization;
 using ImageResizer.ExtensionMethods;
 
 namespace ImageResizer.Plugins.WicBuilder {
+
+    [Obsolete("This plugin uses Windows Imaging Components, which is buggy and closed-source; see FastScaling for a better alternative.")]
     public class WicBuilderPlugin : BuilderExtension, IPlugin, IIssueProvider, IFileExtensionPlugin {
 
         public WicBuilderPlugin() {
@@ -69,7 +76,7 @@ namespace ImageResizer.Plugins.WicBuilder {
                 //Save the original stream positione
                 originalPosition = (restoreStreamPosition) ? s.Position : -1;
 
-                data = StreamExtensions.CopyOrReturnBuffer(s, out lData,false, 0x1000);
+                data = s.CopyOrReturnBuffer( out lData,false, 0x1000);
             } finally {
                 if (s != null && restoreStreamPosition && s.CanSeek) s.Seek(originalPosition, SeekOrigin.Begin);
                 if (disposeStream && s != null) s.Dispose();
@@ -150,6 +157,7 @@ namespace ImageResizer.Plugins.WicBuilder {
                 frame.GetPixelFormat(out pixelFormat);
                 //Calculate the new size of the image and the canvas.
                 ImageState state = new ImageState(settings, orig, true);
+                state.Job = job;
                 c.CurrentImageBuilder.Process(state);
 
 

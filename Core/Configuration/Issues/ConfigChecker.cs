@@ -1,4 +1,8 @@
-﻿/* Copyright (c) 2011 Nathanael Jones. See license.txt */
+// Copyright (c) Imazen LLC.
+// No part of this project, including this file, may be copied, modified,
+// propagated, or distributed except as permitted in COPYRIGHT.txt.
+// Licensed under the Apache License, Version 2.0.
+﻿
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -27,16 +31,16 @@ namespace ImageResizer.Configuration.Issues {
             if (c.Pipeline.ProcessedCount < 1)
                 issues.Add(new Issue("To potentially see additional errors here, perform an image resize request.", IssueSeverity.Warning));
 
-            bool canCheckUrls = System.Security.SecurityManager.IsGranted(new System.Security.Permissions.SecurityPermission(System.Security.Permissions.PermissionState.Unrestricted));
+            bool canCheckUrls = c.Pipeline.IsAppDomainUnrestricted();
 
-            if (canCheckUrls) {
+            if (canCheckUrls && HostingEnvironment.ApplicationVirtualPath != null) {
                 try {
                     IPrincipal user = new GenericPrincipal(new GenericIdentity(string.Empty, string.Empty), new string[0]);
                     UrlAuthorizationModule.CheckUrlAccessForPrincipal(HostingEnvironment.ApplicationVirtualPath.TrimEnd('/') + '/', user, "GET");
                 } catch (NotImplementedException) {
                     issues.Add(new Issue("UrlAuthorizationModule.CheckUrlAccessForPrincipal is not supported on this runtime (are you running Mono?)",
                          "It may be possible for users to bypass UrlAuthorization rules you have defined for your website, and access images that would otherwise be protected. If you do not use UrlAuthorization rules, this should not be a concern. " +
-                       "You may also re-implement your security rules by handling the Config.Current.Pipeline.AuthorizeImage event.", IssueSeverity.Warning));
+                       "You may also re-implement your security rules (but only for *processed* images) by handling the Config.Current.Pipeline.AuthorizeImage event.", IssueSeverity.Warning));
                 }
             }
                     
@@ -46,14 +50,14 @@ namespace ImageResizer.Configuration.Issues {
                     "You may also re-implement your security rules by handling the Config.Current.Pipeline.AuthorizeImage event.", IssueSeverity.Critical));
 
 
-            if (File.Exists(Path.Combine(HostingEnvironment.ApplicationPhysicalPath, "PrecompiledApp.config")))
+            if (HostingEnvironment.ApplicationPhysicalPath != null && File.Exists(Path.Combine(HostingEnvironment.ApplicationPhysicalPath, "PrecompiledApp.config")))
                 issues.Add(new Issue("Precompilation is enabled. Image providers may not work as expected."));
             
             string assembliesRunningHotfix = "";
             Assembly[] asms = AppDomain.CurrentDomain.GetAssemblies();
             foreach (Assembly a in asms) {
                 //Only check DLLs with ImageResizer in their name
-				AssemblyName assemblyName = new AssemblyName(a.FullName);
+                AssemblyName assemblyName = new AssemblyName(a.FullName);
                 if (assemblyName.Name.IndexOf("ImageResizer",  StringComparison.OrdinalIgnoreCase) < 0) continue;
                 
                 object[] attrs;

@@ -1,3 +1,8 @@
+// Copyright (c) Imazen LLC.
+// No part of this project, including this file, may be copied, modified,
+// propagated, or distributed except as permitted in COPYRIGHT.txt.
+// Licensed under the GNU Affero General Public License, Version 3.0.
+// Commercial licenses available at http://imageresizing.net/
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -58,7 +63,7 @@ namespace ImageResizer.Plugins.PsdComposer
             this.path = file.VirtualPath;
 
             using (Stream s = file.Open()) {
-                this.data = StreamExtensions.CopyToBytes(s);
+                this.data = s.CopyToBytes();
             }
         }
         /// <summary>
@@ -74,7 +79,7 @@ namespace ImageResizer.Plugins.PsdComposer
             this.path = physicalPath;
             using (System.IO.FileStream fs = new FileStream(physicalPath, FileMode.Open, FileAccess.Read))
             {
-                this.data = StreamExtensions.CopyToBytes(fs);
+                this.data = fs.CopyToBytes();
             }
 
             sw.Stop();

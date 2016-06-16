@@ -1,4 +1,8 @@
-﻿/* Copyright (c) 2011 Nathanael Jones. See license.txt */
+// Copyright (c) Imazen LLC.
+// No part of this project, including this file, may be copied, modified,
+// propagated, or distributed except as permitted in COPYRIGHT.txt.
+// Licensed under the Apache License, Version 2.0.
+﻿
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -11,6 +15,7 @@ using ImageResizer.Util;
 using System.ComponentModel;
 using ImageResizer.Configuration.Xml;
 using System.Globalization;
+using System.Linq;
 using System.Security;
 
 namespace ImageResizer.Plugins.Basic {
@@ -32,30 +37,14 @@ namespace ImageResizer.Plugins.Basic {
             context.Response.Write(GenerateOutput(context, c));
         }
 
-		public string GenerateOutput(HttpContext context, Config c) {
+        public string GenerateOutput(HttpContext context, Config c) {
             //Get loaded assemblies for later use
-			Assembly[] asms = AppDomain.CurrentDomain.GetAssemblies();
+            Assembly[] asms = AppDomain.CurrentDomain.GetAssemblies();
 
 
-			List<IIssue> issues = new List<IIssue>(c.AllIssues.GetIssues());
+            List<IIssue> issues = new List<IIssue>(c.AllIssues.GetIssues());
+
             
-            //Verify we are using MvcRoutingShim if System.Web.Routing is loaded.
-            bool routingLoaded = false;
-			foreach (Assembly a in asms) {
-                if (new AssemblyName(a.FullName).Name.StartsWith("System.Web.Routing", StringComparison.OrdinalIgnoreCase)) {
-                    routingLoaded = true; break;
-                }
-            }
-            bool usingRoutingShim = false;
-            foreach (IPlugin p in c.Plugins.AllPlugins){
-                if (p.GetType().Name.EndsWith("MvcRoutingShimPlugin", StringComparison.OrdinalIgnoreCase)) {
-                    usingRoutingShim = true; break;
-                }
-            }
-
-            if (routingLoaded && !usingRoutingShim) issues.Add(new Issue(
-                "The MvcRoutingShim plugin must be installed if you are using MVC or System.Web.Routing",
-                "System.Web.Routing is loaded. You must install the MvcRoutingShim plugin. Add ImageResizer.Mvc.dll to your project, and add '<add name=\"MvcRoutingShim\" />' to the <plugins> section of web.config.", IssueSeverity.Critical));
 
             if (!HttpRuntime.UsingIntegratedPipeline && context != null && context.Request != null) {
                 string server = context.Request.ServerVariables["SERVER_SOFTWARE"];
@@ -78,8 +67,12 @@ namespace ImageResizer.Plugins.Basic {
             //Verify we're using the same general version of all ImageResizer assemblies.
             Dictionary<string, List<string>> versions = new Dictionary<string, List<string>>();
             foreach (Assembly a in asms) {
+                
+                var copyright = a.GetCustomAttribute<AssemblyCopyrightAttribute>();
+                var is_imazen_assembly = copyright != null && copyright.Copyright.Contains("Imazen");
+
                 AssemblyName an = new AssemblyName(a.FullName);
-                if (an.Name.StartsWith("ImageResizer", StringComparison.OrdinalIgnoreCase)) {
+                if (an.Name.StartsWith("ImageResizer", StringComparison.OrdinalIgnoreCase) && is_imazen_assembly) {
                     string key = an.Version.Major + "." + an.Version.Minor + "." + an.Version.Build;
                     if (!versions.ContainsKey(key)) versions[key] = new List<string>();
                     versions[key].Add(an.Name);
@@ -94,19 +87,20 @@ namespace ImageResizer.Plugins.Basic {
                     groups = groups.TrimEnd(' ', ',');
                 }
                 issues.Add(new Issue("Potentially incompatible ImageResizer assemblies were detected.",
-                    "Please make sure all ImageResizer assemblies are from the same version. Compatibility issues are possible if you mix plugins from different releases." + groups, IssueSeverity.Warning));
+                    "Please make sure all ImageResizer assemblies are from the same version. Compatibility issues are possible if you mix plugins from different releases: " + groups, IssueSeverity.Warning));
 
             }
 
-			StringBuilder sb = new StringBuilder();
-            sb.AppendLine("Image resizer diagnostic sheet\t\t" + DateTime.UtcNow.ToString(NumberFormatInfo.InvariantInfo) + "\n");
-			sb.AppendLine(issues.Count + " Issues detected:\n");
-			foreach (IIssue i in issues)
-				sb.AppendLine(i.Source + "(" + i.Severity.ToString() + "):\t" + i.Summary  +
-					("\n" + i.Details).Replace("\n","\n\t\t\t") + "\n");
+            StringBuilder sb = new StringBuilder();
+            sb.AppendLine("Image resizer diagnostic sheet\t\t" +  ((System.Web.HttpContext.Current != null) ? System.Web.HttpContext.Current.Request.Url.DnsSafeHost : "") + "\t" + DateTime.UtcNow.ToString(NumberFormatInfo.InvariantInfo) + "\n");
+            sb.AppendLine(issues.Count + " Issues detected:\n");
+            foreach (IIssue i in issues)
+                sb.AppendLine(i.Source + "(" + i.Severity.ToString() + "):\t" + i.Summary  +
+                    ("\n" + i.Details).Replace("\n","\n\t\t\t") + "\n");
 
             //What editions are used?
             var editionsUsed = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            
             foreach (IPlugin p in c.Plugins.AllPlugins) {
                 object[] attrs = p.GetType().Assembly.GetCustomAttributes(typeof(Util.EditionAttribute), true);
                 if (attrs.Length > 0 && attrs[0] is EditionAttribute)
@@ -115,38 +109,45 @@ namespace ImageResizer.Plugins.Basic {
                 }
             }
 
-            string edition = null;
-            //Pick the largest edition
-            foreach (string s in new string[] { "R3Elite", "R3Creative", "R3Performance" })
-            {
-                if (new List<string>(editionsUsed.Values).Contains(s))
-                {
-                    edition = s;
-                    break;
-                }
-            }
+            string edition = editionsUsed.Values.FirstOrDefault(s => new string[] { "R4Elite", "R4Creative", "R4Performance" }.Contains(s));
 
             
-
+            if (new List<string>(editionsUsed.Values).Intersect(new string[] { "R3Elite", "R3Creative", "R3Performance" }).Count() > 0){
+                sb.AppendLine("You are mixing V3 and V4 plugins; this is a very bad idea.");
+            }
             Dictionary<string, string> friendlyNames = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            friendlyNames.Add("R3Elite", "Elite Edition or Support Contract");
-            friendlyNames.Add("R3Creative", "Creative Edition");
-            friendlyNames.Add("R3Performance", "Performance Edition");
+            friendlyNames.Add("R4Elite", "V4 Elite Edition or a support contract");
+            friendlyNames.Add("R4Creative", "V4 Creative Edition");
+            friendlyNames.Add("R4Performance", "V4 Performance Edition");
 
-            if (edition == null) 
-                sb.AppendLine("\nYou are not using any paid plugins.");
-            else {
-                sb.Append("\nYou are using plugins from the " + friendlyNames[edition] + ": ");
-                foreach (string s in editionsUsed.Keys) sb.Append(s + " (" +  friendlyNames[editionsUsed[s]] + "), ");
-                sb.Remove(sb.Length - 2, 2);
-                sb.AppendLine();
+            sb.AppendLine("Assembly use report: \n");
+
+            if (asms.Any(a => a.FullName.Contains("PdfRenderer")))
+            {
+                sb.AppendLine("You are using a GPL/AGPL-only assembly. Consult the PdfRenderer licensing at http://imageresizing.net/licenses/pdfrenderer");
             }
 
-			sb.AppendLine("\nRegistered plugins:\n");
-			foreach (IPlugin p in c.Plugins.AllPlugins)
-				sb.AppendLine(p.ToString());
+            if (edition == null) 
+                sb.AppendLine("You do not seem to be using any plugins from (commerical/AGPL) editions.");
+            else {
+                sb.AppendLine("\nYou are using plugins and assemblies from the " + friendlyNames[edition] + ".");
+                //foreach (string s in editionsUsed.Keys) {
+                //    sb.Append(s + " (" + (friendlyNames.ContainsKey(editionsUsed[s]) ? friendlyNames[editionsUsed[s]] : "Unrecognized SKU")+ "), ");
+                //}
+                //sb.Remove(sb.Length - 2, 2);
+                //sb.AppendLine();
+            }
 
-			sb.AppendLine("\nConfiguration:\n");
+            sb.AppendLine();
+
+            sb.AppendLine(String.Join("\n",c.Plugins.GetAll<IDiagnosticsProvider>().Select(p => p.ProvideDiagnostics()).Distinct()));
+
+
+            sb.AppendLine("\nRegistered plugins:\n");
+            foreach (IPlugin p in c.Plugins.AllPlugins)
+                sb.AppendLine(p.ToString());
+
+            sb.AppendLine("\nConfiguration:\n");
 
             //Let plugins redact sensitive information from the configuration before we display it
             Node n = c.getConfigXml();
@@ -156,29 +157,29 @@ namespace ImageResizer.Plugins.Basic {
             string config = n.ToString();
             string pwd = c.get("remoteReader.signingKey", String.Empty);
             if (!string.IsNullOrEmpty(pwd)) config.Replace(pwd,"*********");
-			sb.AppendLine(config);
+            sb.AppendLine(config);
 
 
-			sb.AppendLine("\nAccepted querystring keys:\n");
-			foreach (string s in c.Pipeline.SupportedQuerystringKeys) {
-				sb.Append(s + ", ");
-			}
-			sb.AppendLine();
+            sb.AppendLine("\nAccepted querystring keys:\n");
+            foreach (string s in c.Pipeline.SupportedQuerystringKeys) {
+                sb.Append(s + ", ");
+            }
+            sb.AppendLine();
 
-			sb.AppendLine("\nAccepted file extensions:\n");
-			foreach (string s in c.Pipeline.AcceptedImageExtensions) {
-				sb.Append(s + ", ");
-			}
-			sb.AppendLine();
+            sb.AppendLine("\nAccepted file extensions:\n");
+            foreach (string s in c.Pipeline.AcceptedImageExtensions) {
+                sb.Append(s + ", ");
+            }
+            sb.AppendLine();
 
 
-			//Echo server assembly, iis version, OS version, and CLR version.
-			sb.AppendLine("\nEnvironment information:\n");
-			string iis = context != null ? context.Request.ServerVariables["SERVER_SOFTWARE"] : "NOT ASP.NET";
-			if (!string.IsNullOrEmpty(iis)) iis += " on ";
-			sb.AppendLine("Running " + iis +
-				System.Environment.OSVersion.ToString() + " and CLR " +
-				System.Environment.Version.ToString());
+            //Echo server assembly, iis version, OS version, and CLR version.
+            sb.AppendLine("\nEnvironment information:\n");
+            string iis = context != null ? context.Request.ServerVariables["SERVER_SOFTWARE"] : "NOT ASP.NET";
+            if (!string.IsNullOrEmpty(iis)) iis += " on ";
+            sb.AppendLine("Running " + iis +
+                System.Environment.OSVersion.ToString() + " and CLR " +
+                System.Environment.Version.ToString());
             sb.AppendLine("Trust level: " + GetCurrentTrustLevel().ToString());
 
             try{
@@ -192,14 +193,25 @@ namespace ImageResizer.Plugins.Basic {
             // PROCESSOR_ARCHITECTURE	x86	AMD64	x86
             // PROCESSOR_ARCHITEW6432	undefined	undefined	AMD64
 
-			if (hasFullTrust()) {
-				sb.AppendLine("Executing assembly: " + mainModuleFileName());
-			}
+            if (hasFullTrust()) {
+                sb.AppendLine("Executing assembly: " + mainModuleFileName());
+            }
 
-			sb.AppendLine("IntegratedPipeline: " + (HttpRuntime.UsingIntegratedPipeline).ToString());
+            sb.AppendLine("IntegratedPipeline: " + (HttpRuntime.UsingIntegratedPipeline).ToString());
+
+            if (HttpContext.Current != null && HttpContext.Current.ApplicationInstance != null && HttpContext.Current.ApplicationInstance.Modules != null)
+            {
+                var modules = HttpContext.Current.ApplicationInstance.Modules;
+                sb.AppendLine("\nInstalled HttpModules: \n");
+                foreach (string key in modules.AllKeys)
+                {
+                    sb.AppendLine(modules.Get(key).GetType().AssemblyQualifiedName + "          (under key" + key + ")");
+                }
+            }
+
 
             //List loaded assemblies, and also detect plugin assemblies that are not being used.
-			sb.AppendLine("\nLoaded assemblies:\n");
+            sb.AppendLine("\nLoaded assemblies:\n");
 
             StringBuilder unusedPlugins = new StringBuilder();
             Dictionary<string, bool> usedAssemblies = new Dictionary<string,bool>(StringComparer.OrdinalIgnoreCase);
@@ -207,28 +219,28 @@ namespace ImageResizer.Plugins.Basic {
                 usedAssemblies[p.GetType().Assembly.FullName] = true;
 
             
-			foreach (Assembly a in asms) {
+            foreach (Assembly a in asms) {
                 StringBuilder asb = new StringBuilder();
 
-				AssemblyName assemblyName = new AssemblyName(a.FullName);
+                AssemblyName assemblyName = new AssemblyName(a.FullName);
                 
-				asb.Append(assemblyName.Name.PadRight(40, ' '));
+                asb.Append(assemblyName.Name.PadRight(40, ' '));
 
-				asb.Append(" Assembly: " + assemblyName.Version.ToString().PadRight(15));
+                asb.Append(" Assembly: " + assemblyName.Version.ToString().PadRight(15));
 
                
                 object[] attrs;
                 
-				attrs = a.GetCustomAttributes(typeof(AssemblyFileVersionAttribute), false);
-				if (attrs != null && attrs.Length > 0) asb.Append(" File: " + ((AssemblyFileVersionAttribute)attrs[0]).Version.PadRight(15));
+                attrs = a.GetCustomAttributes(typeof(AssemblyFileVersionAttribute), false);
+                if (attrs != null && attrs.Length > 0) asb.Append(" File: " + ((AssemblyFileVersionAttribute)attrs[0]).Version.PadRight(15));
 
-				attrs = a.GetCustomAttributes(typeof(AssemblyInformationalVersionAttribute), false);
-				if (attrs != null && attrs.Length > 0) asb.Append(" Info: " + ((AssemblyInformationalVersionAttribute)attrs[0]).InformationalVersion);
+                attrs = a.GetCustomAttributes(typeof(AssemblyInformationalVersionAttribute), false);
+                if (attrs != null && attrs.Length > 0) asb.Append(" Info: " + ((AssemblyInformationalVersionAttribute)attrs[0]).InformationalVersion);
 
-				attrs = a.GetCustomAttributes(typeof(CommitAttribute), false);
-				if (attrs != null && attrs.Length > 0) asb.Append("  Commit: " + ((CommitAttribute)attrs[0]).Value);
+                attrs = a.GetCustomAttributes(typeof(CommitAttribute), false);
+                if (attrs != null && attrs.Length > 0) asb.Append("  Commit: " + ((CommitAttribute)attrs[0]).Value);
 
-				asb.AppendLine();
+                asb.AppendLine();
 
                 
                 if (assemblyName.Name.StartsWith("ImageResizer.Plugins", StringComparison.OrdinalIgnoreCase) && !usedAssemblies.ContainsKey(a.FullName)) {
@@ -236,7 +248,7 @@ namespace ImageResizer.Plugins.Basic {
                 }
                
                 sb.Append(asb.ToString());
-			}
+            }
 
             if (unusedPlugins.Length > 0) {
                 sb.AppendLine("\nThe following plugin assemblies are loaded but do not seem to be in use. " +
@@ -248,14 +260,14 @@ namespace ImageResizer.Plugins.Basic {
                     "The Logging plugin depends on: NLog.dll\n" +
                     "The AdvancedFilters, RedEye, and WhitespaceTrimmer plugins depend on: AForge.dll, AForge.Math.dll, and AForge.Imaging.dll\n" +
                     "The PsdReader and PsdComposer plugins depend on: PsdFile.dll\n" +
-                    "The S3Reader plugin depends on: LitS3.dll\n" +
+                    "The S3Reader plugin depends on: AWSSDK.dll\n" +
                     "The BatchZipper plugin depends on: Ionic.Zip.Reduced.dll\n" + 
                     "The PdfRenderer plugin depends on gsdll32.dll or gdsll32.dll\n" + 
                     "The RedEye plugin depends on several dozen files... see the plugin docs.\n");
             }
-			return sb.ToString();
+            return sb.ToString();
 
-		}
+        }
         /// <summary>
         /// Returns the ASP.NET trust level
         /// </summary>
@@ -281,27 +293,27 @@ namespace ImageResizer.Plugins.Basic {
             return AspNetHostingPermissionLevel.None;
         }
 
-		private static string mainModuleFileName() {
+        private static string mainModuleFileName() {
             try {
                 return System.Diagnostics.Process.GetCurrentProcess().MainModule.FileName;
             } catch (Win32Exception) {
                 return " (cannot be determined, access denied)";
             }
 
-		}
+        }
 
-		private static bool hasFullTrust() {
-			bool fullTrust = false;
-			try
-			{
-				new AspNetHostingPermission(AspNetHostingPermissionLevel.Unrestricted).Demand();
-				fullTrust = true;
-			}
-			catch (System.Security.SecurityException)
-			{
-			}
-			return fullTrust;
-		}
+        private static bool hasFullTrust() {
+            bool fullTrust = false;
+            try
+            {
+                new AspNetHostingPermission(AspNetHostingPermissionLevel.Unrestricted).Demand();
+                fullTrust = true;
+            }
+            catch (System.Security.SecurityException)
+            {
+            }
+            return fullTrust;
+        }
 
-	}
+    }
 }

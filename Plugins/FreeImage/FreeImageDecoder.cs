@@ -1,3 +1,8 @@
+// Copyright (c) Imazen LLC.
+// No part of this project, including this file, may be copied, modified,
+// propagated, or distributed except as permitted in COPYRIGHT.txt.
+// Licensed under the GNU Affero General Public License, Version 3.0.
+// Commercial licenses available at http://imageresizing.net/
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
@@ -22,6 +27,11 @@ namespace ImageResizer.Plugins.FreeImageDecoder {
         public FreeImageDecoderPlugin() {
         }
         private static IEnumerable<string> supportedExts = null;
+        /// <summary>
+        /// Adds the plugin to the given configuration container
+        /// </summary>
+        /// <param name="c"></param>
+        /// <returns></returns>
         public IPlugin Install(Configuration.Config c) {
             if (supportedExts == null && FreeImage.IsAvailable()) {
                 supportedExts = BuildSupportedList();
@@ -42,11 +52,19 @@ namespace ImageResizer.Plugins.FreeImageDecoder {
 
         }
 
+        /// <summary>
+        /// Removes the plugin from the given configuration container
+        /// </summary>
+        /// <param name="c"></param>
+        /// <returns></returns>
         public bool Uninstall(Configuration.Config c) {
             c.Plugins.remove_plugin(this);
             return true;
         }
-
+        /// <summary>
+        /// Additional file types this plugin adds support for decoding.
+        /// </summary>
+        /// <returns></returns>
         public IEnumerable<string> GetSupportedFileExtensions() {
             if (supportedExts == null) return new string[] { };
             else return supportedExts;
@@ -70,7 +88,8 @@ namespace ImageResizer.Plugins.FreeImageDecoder {
         public Bitmap Decode(Stream s, ResizeSettings settings) {
             return (Bitmap)DecodeAndCall(s, settings, delegate(ref FIBITMAP b, bool MayDispose) {
                  bool usethumb = ("true".Equals(settings["usepreview"], StringComparison.OrdinalIgnoreCase));
-                bool autorotate = ("true".Equals(settings["autorotate"], StringComparison.OrdinalIgnoreCase));
+                 bool autorotate = settings.Get<bool>("autorotate", settings.Get<bool>("autorotate.default", false));
+
 
                 return Convert(b, autorotate && !usethumb); //because usepreview prevents autorotate from working at the freeimage level
             });
@@ -145,7 +164,7 @@ namespace ImageResizer.Plugins.FreeImageDecoder {
         }
         private static bool HasToneMappingCommands(ResizeSettings settings) {
             return false; //Tone mapping is disabled, not yet functional
-            return NameValueCollectionExtensions.Get<ToneMappingAlgorithm>(settings, "fi.tonemap", ToneMappingAlgorithm.None) != ToneMappingAlgorithm.None;
+            //return settings.Get<ToneMappingAlgorithm>("fi.tonemap", ToneMappingAlgorithm.None) != ToneMappingAlgorithm.None;
 
         }
 
@@ -154,7 +173,7 @@ namespace ImageResizer.Plugins.FreeImageDecoder {
 
             FIBITMAP m = FIBITMAP.Zero;
             try {
-                var alg = NameValueCollectionExtensions.Get<ToneMappingAlgorithm>(settings, "fi.tonemap", ToneMappingAlgorithm.None);
+                var alg = settings.Get<ToneMappingAlgorithm>("fi.tonemap", ToneMappingAlgorithm.None);
                 if (alg == ToneMappingAlgorithm.Drago){
                     m = FreeImage.TmoDrago03(b, 2.2, 0);
                 }else if (alg == ToneMappingAlgorithm.Reinhard){
@@ -178,12 +197,19 @@ namespace ImageResizer.Plugins.FreeImageDecoder {
             return b;
         }
 
+        /// <summary>
+        /// Returns the issue "The FreeImage library is not available! All FreeImage plugins will be disabled" if the FreeImage library is not available.
+        /// </summary>
+        /// <returns></returns>
         public IEnumerable<IIssue> GetIssues() {
             List<IIssue> issues = new List<IIssue>();
             if (!FreeImageAPI.FreeImage.IsAvailable()) issues.Add(new Issue("The FreeImage library is not available! All FreeImage plugins will be disabled.", IssueSeverity.Error));
             return issues;
         }
-
+        /// <summary>
+        /// Returns the querystrings command keys supported by this plugin. 
+        /// </summary>
+        /// <returns></returns>
         public IEnumerable<string> GetSupportedQuerystringKeys() {
             return new string[] { "usepreview", "autorotate", "page", "frame" };
         }

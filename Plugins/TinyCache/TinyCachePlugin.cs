@@ -1,4 +1,8 @@
-﻿using System;
+// Copyright (c) Imazen LLC.
+// No part of this project, including this file, may be copied, modified,
+// propagated, or distributed except as permitted in COPYRIGHT.txt.
+// Licensed under the Apache License, Version 2.0.
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -21,7 +25,7 @@ namespace ImageResizer.Plugins.TinyCache {
         }
 
 
-        protected string virtualCacheFile = HostingEnvironment.ApplicationVirtualPath.TrimEnd('/') + "/App_Data/tiny_cache.cache";
+        protected string virtualCacheFile = (HostingEnvironment.ApplicationVirtualPath ?? string.Empty).TrimEnd('/') + "/App_Data/tiny_cache.cache";
         /// <summary>
         /// Sets the location of the cache file
         /// </summary>
@@ -40,13 +44,22 @@ namespace ImageResizer.Plugins.TinyCache {
         /// </summary>
         public string PhysicalCacheFile {
             get {
-                if (!string.IsNullOrEmpty(VirtualCacheFile)) return HostingEnvironment.MapPath(VirtualCacheFile);
+                if (!string.IsNullOrEmpty(VirtualCacheFile)) {
+                    if (HostingEnvironment.ApplicationVirtualPath == null) {
+                        return Path.Combine(AppDomain.CurrentDomain.BaseDirectory, this.VirtualCacheFile.TrimStart('/'));
+                    }
+                    else {
+                        return HostingEnvironment.MapPath(VirtualCacheFile);
+                    }
+                }
+                    
+
                 return null;
             }
         }
 
         /// <summary>
-        /// 30MB is the maxmimum size of the cache. Writing more than that do disk during an image request would cause a timeout for sure.
+        /// 30MB is the maxmimum size of the cache. Writing more than that to disk during an image request would cause a timeout for sure.
         /// </summary>
         public int MaxBytes { get { return 30 * 1024 * 1024; } }
 
@@ -64,7 +77,7 @@ namespace ImageResizer.Plugins.TinyCache {
         
         public bool CanOperate {
             get {
-                return HasFileIOPermission && !string.IsNullOrEmpty(VirtualCacheFile) ;
+                return !string.IsNullOrEmpty(VirtualCacheFile) && HasFileIOPermission;
             }
         }
 
@@ -77,8 +90,7 @@ namespace ImageResizer.Plugins.TinyCache {
         protected bool HasFileIOPermission {
             get {
                 if (_hasFileioPermission == null) {
-                    FileIOPermission writePermission = new FileIOPermission(FileIOPermissionAccess.AllAccess, new string[] { PhysicalCacheFile });
-                    _hasFileioPermission = SecurityManager.IsGranted(writePermission);
+                    return PathUtils.HasIOPermission(new string[] { PhysicalCacheFile });
                 }
                 return _hasFileioPermission.Value;
             }
@@ -213,14 +225,17 @@ namespace ImageResizer.Plugins.TinyCache {
    
      
         public bool CanProcess(System.Web.HttpContext current, IResponseArgs e) {
+            if (e == null) {
+                throw new ArgumentNullException("e");
+            }
+
             if (((ResizeSettings)e.RewrittenQuerystring).Cache == ServerCacheMode.No) return false;
             return CanOperate;
         }
 
         public void Process(System.Web.HttpContext current, IResponseArgs e) {
             
-            var modDate = e.HasModifiedDate ? e.GetModifiedDateUTC() : DateTime.MinValue;
-            var key = e.RequestKey +  "|" + modDate.Ticks.ToString(NumberFormatInfo.InvariantInfo);
+            var key = e.RequestKey;
 
             CacheEntry entry;
             byte[] data;

@@ -1,7 +1,13 @@
+// Copyright (c) Imazen LLC.
+// No part of this project, including this file, may be copied, modified,
+// propagated, or distributed except as permitted in COPYRIGHT.txt.
+// Licensed under the GNU Affero General Public License, Version 3.0.
+// Commercial licenses available at http://imageresizing.net/
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
 using ImageResizer.Resizing;
+using ImageResizer.ExtensionMethods;
 using System.Drawing;
 using System.IO;
 using Imazen.WebP;
@@ -34,7 +40,7 @@ namespace ImageResizer.Plugins.WebPDecoder {
 
         private Bitmap Decode(Stream s) {
             long length;
-            byte[] buffer = ExtensionMethods.StreamExtensions.CopyOrReturnBuffer(s, out length,false,4096);
+            byte[] buffer = s.CopyOrReturnBuffer(out length,false,4096);
             return new SimpleDecoder().DecodeFromBytes(buffer, length);
         }
 

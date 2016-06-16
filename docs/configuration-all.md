@@ -1,4 +1,5 @@
 Aliases: /docs/configuration-all
+Flags: hidden
 
 # Configuration Reference
 
@@ -130,10 +131,6 @@ This is a full reference showing how to use each setting. You should *never* cop
 				<!-- You must remove the <add name="FolderResizeSyntax" /> if present -->
 				<!-- http://www.imageresizing.net/plugins/folderresizesyntax -->
 				<add name="FolderResizeSyntax" />
-
-				<!-- Adds the MvcRoutingShim -->
-				<!-- http://www.imageresizing.net/plugins/mvcroutingshim -->
-				<add name="MvcRoutingShim" />
 
 				<!-- Adds the PdfRender -->
 				<!-- If you set downloadNativeDependencies="false" or you're running < V3.2, place gsdll32.dll and  -->

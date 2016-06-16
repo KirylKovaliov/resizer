@@ -1,3 +1,8 @@
+// Copyright (c) Imazen LLC.
+// No part of this project, including this file, may be copied, modified,
+// propagated, or distributed except as permitted in COPYRIGHT.txt.
+// Licensed under the GNU Affero General Public License, Version 3.0.
+// Commercial licenses available at http://imageresizing.net/
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -19,6 +24,7 @@ namespace ImageResizer.Plugins.WicDecoder {
     /// While ImageBuilder handles this, your code may not. It's best not to directly call LoadImage with &decoder=wic. 
     /// This decoder returns Bitmap instances with .Tag set to a GCHandle instance. You must call ((GCHandle)b.Tag).Free() after disposing the Bitmap.
     /// </summary>
+    [Obsolete("This plugin uses Windows Imaging Components, which is buggy and closed-source; see FastScaling for a better alternative.")]
     public class WicDecoderPlugin : BuilderExtension, IPlugin, IFileExtensionPlugin, IIssueProvider {
 
         public WicDecoderPlugin() {
@@ -53,7 +59,7 @@ namespace ImageResizer.Plugins.WicDecoder {
         public Bitmap Decode(Stream s, ResizeSettings settings) {
             //Get the underlying byte array
             long lData = 0;
-            byte[] data = StreamExtensions.CopyOrReturnBuffer(s, out lData,false, 0x1000);
+            byte[] data = s.CopyOrReturnBuffer(out lData,false, 0x1000);
 
 
             var factory = (IWICComponentFactory)new WICImagingFactory();

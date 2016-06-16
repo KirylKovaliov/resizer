@@ -1,4 +1,4 @@
-title: ImageResizer v3 Docs
+title: ImageResizer v4 Docs
 items:
 - title: "Getting Started"
   items: 
@@ -22,6 +22,8 @@ items:
   items: 
   - title: Installing ImageResizer
     path: install
+  - title: Adding a license key
+    path: install/license_keys
   - title: ImageResizer for IIS Administrators
     path: install/administrators
   - title: ImageResizer in Classic Mode
@@ -108,7 +110,6 @@ items:
 
 - title: Plugins
   generate: plugins
-  generate_arg_1: v3
 
 
  

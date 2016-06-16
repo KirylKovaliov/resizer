@@ -1,4 +1,8 @@
-﻿/* Copyright (c) 2011 Nathanael Jones. See license.txt */
+// Copyright (c) Imazen LLC.
+// No part of this project, including this file, may be copied, modified,
+// propagated, or distributed except as permitted in COPYRIGHT.txt.
+// Licensed under the Apache License, Version 2.0.
+﻿
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -14,15 +18,41 @@ using ImageResizer.Collections;
 using System.Web;
 using System.Security.Permissions;
 using System.Runtime.InteropServices;
+using System.Security;
+using System.Threading.Tasks;
+using System.Linq;
+using ImageResizer.ExtensionMethods;
+using System.IO;
 
 namespace ImageResizer.Configuration {
     public class PipelineConfig : IPipelineConfig, ICacheProvider, ISettingsModifier{
         protected Config c;
         public PipelineConfig(Config c) {
+            this.ModuleInstalled = false;
             this.c = c;
 
             c.Plugins.QuerystringPlugins.Changed += new SafeList<IQuerystringPlugin>.ChangedHandler(urlModifyingPlugins_Changed);
-            
+
+            new List<string>(c.get("pipeline.fakeExtensions", ".ashx").Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries));
+
+            pipelineDefaults = new Instructions(c.get("pipeline.defaultCommands", ""));
+
+            var pipelineNode =  c.getNode("pipeline");
+
+            if (this.HasPipelineDirective(pipelineDefaults))
+            {
+                var intersection = String.Join(", ", PipelineDirectivesPresent(pipelineDefaults));
+                c.configurationSectionIssues.AcceptIssue(new Issue("You have specified default commands (" + intersection + ") that will cause all image requests to be proccessed; even those that do not need ImageResizer.", pipelineNode != null ? pipelineNode.ToString() : "", IssueSeverity.ConfigurationError));
+            }
+            if (pipelineDefaults.Count > 0)
+            {
+                this.RewriteDefaults += PipelineConfig_RewriteDefaults;
+            }
+        }
+        private NameValueCollection pipelineDefaults;
+        void PipelineConfig_RewriteDefaults(IHttpModule sender, HttpContext context, IUrlEventArgs e)
+        {
+            e.QueryString = e.QueryString.MergeDefaults(pipelineDefaults);
         }
 
         protected void urlModifyingPlugins_Changed(SafeList<IQuerystringPlugin> sender) {
@@ -35,10 +65,10 @@ namespace ImageResizer.Configuration {
 
         protected object _cachedUrlDataSync = new object();
 
-		[CLSCompliant(false)]
+        [CLSCompliant(false)]
         protected volatile Dictionary<string, bool> _cachedDirectives = null;
 
-		[CLSCompliant(false)]
+        [CLSCompliant(false)]
         protected volatile Dictionary<string, bool> _cachedExtensions = null;
 
         /// <summary>
@@ -148,7 +178,21 @@ namespace ImageResizer.Configuration {
             return false;
         }
 
-		[CLSCompliant(false)]
+        private IEnumerable<string> PipelineDirectivesPresent(System.Collections.Specialized.NameValueCollection q)
+        {
+            //Did you know that ASP.NET puts null keys into the QueryString?
+            Dictionary<string, bool> dirs = getCachedDirectives();
+            List<string> intersection = new List<string>();
+            //The querystring always has fewer items than the cachedDirectives, so loop it instead.
+            foreach (string key in q.Keys)
+            {
+                if (key != null && dirs.ContainsKey(key)) intersection.Add(key); //Binary search, hashtable impl
+            }
+            return intersection;
+        }
+
+
+        [CLSCompliant(false)]
         protected volatile IList<string> _fakeExtensions = null;
 
         /// <summary>
@@ -218,7 +262,21 @@ namespace ImageResizer.Configuration {
             get {
                 if (HttpContext.Current == null) return null;
                 if (HttpContext.Current.Items[ModifiedQueryStringKey] == null)
-                    HttpContext.Current.Items[ModifiedQueryStringKey] = new NameValueCollection(HttpContext.Current.Request.QueryString);
+                {
+                    NameValueCollection qs = new NameValueCollection(HttpContext.Current.Request.QueryString);
+
+                    //see if we have query string parameters that we want to have ignored, e.g. cachebusters
+                    string dropQuerystringKeys = this.DropQuerystringKeys;
+                    if (!string.IsNullOrEmpty(dropQuerystringKeys))
+                    {
+                        foreach (string dropQuerystringKey in dropQuerystringKeys.Split(','))
+                        {
+                            qs.Remove(dropQuerystringKey);
+                        }
+                    }
+
+                    HttpContext.Current.Items[ModifiedQueryStringKey] = qs;
+                }
 
                 return (NameValueCollection)HttpContext.Current.Items[ModifiedQueryStringKey];
             }
@@ -262,6 +320,42 @@ namespace ImageResizer.Configuration {
         }
 
         /// <summary>
+        /// Returns an IVirtualFileAsync instance if the specified file can be provided by an async provider 
+        /// </summary>
+        /// <param name="virtualPath"></param>
+        /// <param name="queryString"></param>
+        /// <returns></returns>
+        public async Task<IVirtualFileAsync> GetFileAsync(string virtualPath, NameValueCollection queryString)
+        {
+            IVirtualFileAsync f = null;
+            foreach (IVirtualImageProviderAsync p in c.Plugins.GetAll<IVirtualImageProviderAsync>())
+            {
+                if (await p.FileExistsAsync(virtualPath, queryString))
+                {
+                    f = await p.GetFileAsync(virtualPath, queryString);
+                    break;
+                }
+            }
+            if (f == null) return null;
+            try
+            {
+                //Now we have a reference to the real virtual file, let's see if it is source-cached.
+                IVirtualFileAsync cached = null;
+                foreach (IVirtualFileCacheAsync p in c.Plugins.GetAll<IVirtualFileCacheAsync>())
+                {
+                    cached = await p.GetFileIfCachedAsync(virtualPath, queryString, f);
+                    if (cached != null) return cached;
+                }
+            }catch (FileNotFoundException)
+            {
+                //IVirtualFileCache instances will .Open() and read the original IVirtualFile instance. 
+                return null; 
+            }
+            return f;
+        }
+
+
+        /// <summary>
         /// Returns either an IVirtualFile instance or a VirtualFile instance.
         /// </summary>
         /// <param name="virtualPath"></param>
@@ -281,11 +375,24 @@ namespace ImageResizer.Configuration {
             if (f == null) return null;
 
             //Now we have a reference to the real virtual file, let's see if it is source-cached.
-            IVirtualFile cached = null;
-            foreach (IVirtualFileCache p in c.Plugins.GetAll<IVirtualFileCache>()) {
-                cached = p.GetFileIfCached(virtualPath,queryString,f);
-                if (cached != null) return cached;
+            try
+            {
+                IVirtualFile cached = null;
+                foreach (IVirtualFileCache p in c.Plugins.GetAll<IVirtualFileCache>())
+                {
+                    cached = p.GetFileIfCached(virtualPath, queryString, f);
+                    if (cached != null) return cached;
+                }
             }
+            catch (FileNotFoundException)
+            {
+                //IVirtualFileCache instances will .Open() and read the original IVirtualFile instance.
+                //We must abstract the differences in thrown exception as much as possible.  Start with FileNotFound & DirectoryNotFound
+                return null;
+
+            }
+            catch (DirectoryNotFoundException)
+            { return null; }
             return f;
         }
 
@@ -300,6 +407,15 @@ namespace ImageResizer.Configuration {
                 if (p.FileExists(virtualPath, queryString)) return true;
             }
             return HostingEnvironment.VirtualPathProvider != null ? HostingEnvironment.VirtualPathProvider.FileExists(virtualPath) : false;
+        }
+
+        public async Task<bool> FileExistsAsync(string virtualPath, NameValueCollection queryString)
+        {
+            foreach (IVirtualImageProviderAsync p in c.Plugins.GetAll<IVirtualImageProviderAsync>())
+            {
+                if (await p.FileExistsAsync(virtualPath, queryString)) return true;
+            }
+            return false;
         }
 
 
@@ -362,7 +478,7 @@ namespace ImageResizer.Configuration {
 
         public event CacheSelectionHandler SelectCachingSystem;
 
-		[CLSCompliant(false)]
+        [CLSCompliant(false)]
         protected volatile bool firedFirstRequest = false;
 
         protected volatile bool firstRequestFinished = false;
@@ -467,16 +583,95 @@ namespace ImageResizer.Configuration {
         }
 
 
-        private bool _moduleInstalled = false;
         /// <summary>
-        /// True once the InterceptModule has been installed and is intercepting requests.
+        /// True once the InterceptModule or InterceptModuleAsync has been installed and is intercepting requests.
         /// </summary>
-        public bool ModuleInstalled {
-            get {
-                return _moduleInstalled;
+        public bool ModuleInstalled { get; set; }
+
+
+        private bool? _usingAsyncMode;
+        /// <summary>
+        /// True if the InterceptModuleAsync has been installed. Null if we can't find out. 
+        /// </summary>
+        public bool? UsingAsyncMode
+        {
+            get
+            {
+                if (_usingAsyncMode == null && HttpContext.Current != null && HttpContext.Current.ApplicationInstance != null){
+                    var modules = HttpContext.Current.ApplicationInstance.Modules;
+                    IHttpModule[] list = new IHttpModule[modules.Count];
+                    modules.CopyTo(list, 0);
+
+                   _usingAsyncMode =list.Any((s) => s is AsyncInterceptModule);
+                }
+                return _usingAsyncMode;
             }
-            set {
-                _moduleInstalled = value;
+            set { _usingAsyncMode = value; }
+        }
+
+        /// <summary>
+        /// Returns true if the AppDomain has Unrestricted code access security
+        /// </summary>
+        /// <returns></returns>
+        public bool IsAppDomainUnrestricted(){
+            var permissionSet = new PermissionSet(PermissionState.Unrestricted);
+            permissionSet.AddPermission(new System.Security.Permissions.SecurityPermission(System.Security.Permissions.PermissionState.Unrestricted));
+            return permissionSet.IsSubsetOf(AppDomain.CurrentDomain.PermissionSet);
+        }
+
+        private bool? _authorizeAllImages = null;
+        /// <summary>
+        /// If true, AuthorizeImage will be called for all image requests, not just those with command directives.
+        /// </summary>
+        public bool AuthorizeAllImages
+        {
+            get
+            {
+                if (_authorizeAllImages == null) {
+                    _authorizeAllImages = c.get("pipeline.authorizeAllImages", true);
+                }
+                return _authorizeAllImages.Value;
+            }
+            set
+            {
+                _authorizeAllImages = value;
+            }
+        }
+
+
+        public IAsyncTyrantCache GetAsyncCacheFor(HttpContext context, IAsyncResponsePlan plan)
+        {
+            IAsyncTyrantCache defaultCache = null;
+            //Grab the last cache that claims it can process the request.
+            foreach (IAsyncTyrantCache cache in c.Plugins.GetAll<IAsyncTyrantCache>())
+            {
+                if (cache.CanProcess(context, plan))
+                {
+                    defaultCache = cache;
+                }
+            }
+
+            return defaultCache;
+        }
+
+        private string _dropQuerystringKeys = null;
+
+        /// <summary>
+        /// If specified, DropQuerystringKeys will cause certain query string parameters to be excluded from processing.
+        /// </summary>
+        public string DropQuerystringKeys
+        {
+            get
+            {
+                if (_dropQuerystringKeys == null)
+                {
+                    _dropQuerystringKeys = c.get("pipeline.dropQuerystringKeys", "");
+                }
+                return _dropQuerystringKeys;
+            }
+            set
+            {
+                _dropQuerystringKeys = value;
             }
         }
     }

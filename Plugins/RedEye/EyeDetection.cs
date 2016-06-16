@@ -1,3 +1,8 @@
+// Copyright (c) Imazen LLC.
+// No part of this project, including this file, may be copied, modified,
+// propagated, or distributed except as permitted in COPYRIGHT.txt.
+// Licensed under the GNU Affero General Public License, Version 3.0.
+// Commercial licenses available at http://imageresizing.net/
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
@@ -10,14 +15,32 @@ using ImageResizer.Plugins.Faces;
 
 namespace ImageResizer.Plugins.RedEye {
 
-
+    /// <summary>
+    /// Types of facial features detected.
+    /// </summary>
     public enum FeatureType {
+        /// <summary>
+        /// Individual eyes.
+        /// </summary>
         Eye,
+        /// <summary>
+        /// Pairs of eyes.
+        /// </summary>
         EyePair,
+        /// <summary>
+        /// Faces.
+        /// </summary>
         Face
     }
-
+    /// <summary>
+    /// Creates a rectangle in which facial features are isolated.
+    /// </summary>
     public class ObjRect : IFeature {
+        /// <summary>
+        /// Declares coordinates of rectangle for isolating facial features.
+        /// </summary>
+        /// <param name="rect"></param>
+        /// <param name="type"></param>
         public ObjRect(RectangleF rect, FeatureType type) {
             this.X = rect.X;
             this.Y = rect.Y;
@@ -26,16 +49,38 @@ namespace ImageResizer.Plugins.RedEye {
             this.Feature = type;
             this.Accuracy = 0;
         }
+        /// <summary>
+        /// X coordinate of top left point of the facial features recognition rectangle.
+        /// </summary>
         public float X { get; set; }
+        /// <summary>
+        /// Y coordinate of the facial features recognition rectangle.
+        /// </summary>
         public float Y { get; set; }
+        /// <summary>
+        /// X coordinate of bottom right point of the facial features recognition rectangle.
+        /// </summary>
         public float X2 { get; set; }
+        /// <summary>
+        /// Y coordinate of bottom right point of the facial features recognition rectangle.
+        /// </summary>
         public float Y2 { get; set; }
+        /// <summary>
+        /// Confidence level for facial recognition rectangle
+        /// </summary>
         public float Accuracy { get; set; }
+        /// <summary>
+        /// Which feature is being isolated.
+        /// </summary>
         public FeatureType Feature { get; set; }
     }
-
+    /// <summary>
+    /// Eye detection feature.
+    /// </summary>
     public class EyeDetection : FeatureDetectionBase<ObjRect> {
-
+        /// <summary>
+        /// Eye detection feature.
+        /// </summary>
         public EyeDetection()
             : base() {
                 this.fileNames = new Dictionary<string, string>(){
@@ -59,7 +104,7 @@ namespace ImageResizer.Plugins.RedEye {
 
             //Detect faces
             Stopwatch watch = Stopwatch.StartNew();
-            CvAvgComp[] faces = Cv.HaarDetectObjects(img, Cascades["FaceCascade"], storage, 1.0850, 2, 0, new CvSize(30, 30)).ToArrayAndDispose();
+            CvAvgComp[] faces = Cv.HaarDetectObjects(img, Cascades["FaceCascade"], storage, 1.0850, 2, 0, new CvSize(30, 30), new CvSize(0, 0)).ToArrayAndDispose();
             watch.Stop();
             Debug.WriteLine("face detection time = " + watch.ElapsedMilliseconds);
 
@@ -67,7 +112,7 @@ namespace ImageResizer.Plugins.RedEye {
 
             //If there are no faces, look for large eye pairs
             if (faces.Length == 0) {
-                CvAvgComp[] pairs = Cv.HaarDetectObjects(img, Cascades["EyePair45"], storage, 1.0850, 2, 0, new CvSize(img.Width / 4, img.Width / 20)).ToArrayAndDispose();
+                CvAvgComp[] pairs = Cv.HaarDetectObjects(img, Cascades["EyePair45"], storage, 1.0850, 2, 0, new CvSize(img.Width / 4, img.Width / 20), new CvSize(0, 0)).ToArrayAndDispose();
                 if (pairs.Length > 0) {
                     //TODO!!! Uncomment and test now that CompareByNeighbors sorts correctly
                     //Array.Sort<CvAvgComp>(pairs, CompareByNeighbors); 
@@ -100,7 +145,7 @@ namespace ImageResizer.Plugins.RedEye {
             img.SetROI(r);
 
             //Look for pairs there
-            CvAvgComp[] pairs = Cv.HaarDetectObjects(img, Cascades["EyePair22"], storage, 1.0850, 2, 0, new CvSize(r.Width < 50 ? 11 : 22, r.Width < 50 ? 3 : 5)).ToArrayAndDispose();
+            CvAvgComp[] pairs = Cv.HaarDetectObjects(img, Cascades["EyePair22"], storage, 1.0850, 2, 0, new CvSize(r.Width < 50 ? 11 : 22, r.Width < 50 ? 3 : 5), new CvSize(0, 0)).ToArrayAndDispose();
             //Array.Sort<CvAvgComp>(pairs, CompareByNeighbors);
 
             //Look for individual eyes if no pairs were found
@@ -190,7 +235,7 @@ namespace ImageResizer.Plugins.RedEye {
                     //Search for eyes
                     storage.Clear();
                     img.SetROI(left);
-                    CvAvgComp[] leyes = Cv.HaarDetectObjects(img, (int)vals[0] == 0 ? Cascades["RightEyeCascade"] : Cascades["Eye"], storage, 1.0850, (int)vals[1], 0, minEyeSize).ToArrayAndDispose();
+                    CvAvgComp[] leyes = Cv.HaarDetectObjects(img, (int)vals[0] == 0 ? Cascades["RightEyeCascade"] : Cascades["Eye"], storage, 1.0850, (int)vals[1], 0, minEyeSize, new CvSize(0, 0)).ToArrayAndDispose();
                     //Array.Sort<CvAvgComp>(leyes, CompareByNeighbors);
 
                     if (leyes.Length > 0) {
@@ -204,7 +249,7 @@ namespace ImageResizer.Plugins.RedEye {
                 if (!foundRight) {
                     storage.Clear();
                     img.SetROI(right);
-                    CvAvgComp[] reyes = Cv.HaarDetectObjects(img, (int)vals[0] == 0 ? Cascades["LeftEyeCascade"] : Cascades["Eye"], storage, 1.0850, (int)vals[1], 0, minEyeSize).ToArrayAndDispose();
+                    CvAvgComp[] reyes = Cv.HaarDetectObjects(img, (int)vals[0] == 0 ? Cascades["LeftEyeCascade"] : Cascades["Eye"], storage, 1.0850, (int)vals[1], 0, minEyeSize, new CvSize(0, 0)).ToArrayAndDispose();
                     //Array.Sort<CvAvgComp>(reyes, CompareByNeighbors);
 
                     if (reyes.Length > 0) {

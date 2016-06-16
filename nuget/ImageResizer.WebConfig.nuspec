@@ -12,7 +12,7 @@
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
 	<description>
 
-Installs the ImageResizer module by (carefully) modifying Web.Config. 
+Installs ImageResizer module by (carefully) modifying Web.Config. 
 
 Docs: http://imageresizing.net/
 
@@ -22,7 +22,7 @@ $plugins$
 </description>
     <tags>ImageResizer Imazen Resizer Web.Config imaging</tags>
 	<dependencies>
-	  <dependency id="ImageResizer"/>
+	  <dependency id="ImageResizer" version="[$version$,)" />
 	</dependencies>
   </metadata>
   	<files>

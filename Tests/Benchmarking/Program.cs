@@ -1,159 +1,642 @@
+// Copyright (c) Imazen LLC.
+// No part of this project, including this file, may be copied, modified,
+// propagated, or distributed except as permitted in COPYRIGHT.txt.
+// Licensed under the Apache License, Version 2.0.
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using ImageResizer.Configuration;
-using ImageResizer.Plugins.PrettyGifs;
 using ImageResizer;
 using System.Diagnostics;
-using ImageResizer.Plugins.FreeImageBuilder;
 using ImageResizer.Util;
 using System.IO;
-using ImageResizer.Plugins.FreeImageDecoder;
 using System.Drawing;
-using ImageResizer.Plugins.FreeImageEncoder;
 using ImageResizer.Plugins.Basic;
-using ImageResizer.Plugins.Watermark;
 using ImageResizer.Encoding;
 using ImageResizer.ExtensionMethods;
+using System.Drawing.Imaging;
+using ImageResizer.Resizing;
+using System.Collections.Specialized;
+using System.Threading;
+using Imazen.Profiling;
+using System.Reflection;
 
-namespace Bench {
-    class Program {
+namespace Bench
+{
+    class Program
+    {
 
         public static string imageDir = "..\\..\\Samples\\Images\\";// "..\\..\\..\\..\\Samples\\Images\\";
-        static void Main(string[] args) {
+
+        public static int ConsoleWidth = 150;
+
+        public static int parallelThreads = 8;
+        static void Main(string[] args)
+        {
+            SearchNearbyForPlugins(); 
+
             Config c = new Config();
-            new PrettyGifs().Install(c);
-            WatermarkPlugin w = (WatermarkPlugin)new WatermarkPlugin().Install(c);
-            w.OtherImages.Path = imageDir;
 
-            Console.WindowWidth = 200;
+            Console.WindowWidth = ConsoleWidth;
+
+
+
+            //parallelism test (thread count sequence)
+            //Benchmark relative to costly baseline operation
+            //Upload results to S3?
+            //compare N actions
+            //source data 
+            //action buffered? action profiled?
+            //IO read qty?
+
+
+            ///CompareGdToDefault();
+
+            //CompareGdToDefault("bit");
+
+            //CompareGdToDefault("bit");
+            //CompareGdToDefault("encode");
+
+            //CompareFastScaling("bit");
             
+            //CompareFastScalingToDefaultHQ("bit");
 
-            //TODO: make watermark system work outside of the web folder.
-            string s = c.GetDiagnosticsPage();
-            c.BuildImage(imageDir + "quality-original.jpg", "grass.gif", "rotate=3&width=600&format=gif&colors=128&watermark=Sun_256.png");
+            //CompareFastScalingSpeeds("bit");
+            //CompareFastScalingToDefault("bit");
 
-            CompareFreeImageDecoderToDefault();
+            Console.WriteLine("Just rendering");
+            CompareFastScalingByThreading("bit");
+            Console.WriteLine("Including decoding and encoding");
+            CompareFastScalingByThreading("op");
 
-            CompareFreeImageEncoderToDefault();
-           
-
-            CompareFreeImageToDefault();
-
-            EvaluateSpeedPlugin();
+            Console.Write("Done\n");
             Console.ReadKey();
         }
 
+        public BenchmarkRunner<int, JobProfiler> EstablishBaseline()
+        {
+            var r = new Imazen.Profiling.BenchmarkRunner<int, JobProfiler>();
+            r.Operation = new Action<JobProfiler, int>((p, _) => new CostlyBaseline().DoWork());
+            r.ParallelThreads = parallelThreads;
+            r.SequentialRuns = 4;
+            r.ParallelRuns = 2;
+            return r;
+        }
 
-        public static void EvaluateSpeedPlugin() {
+        public static void SearchNearbyForPlugins()
+        {
             
-            string[] images = new string[] { "2758U_02.jpg","2758U_02.tif","27520_96.jpg","27520_96.tif","27586_33.jpg","27586_33.tif" };
-            for (int i = 0; i < images.Length; i++)
-                images[i] = imageDir + "private\\sierra\\" + images[i];
+            var searchFolders = 
+               new []{Assembly.GetExecutingAssembly().Location, 
+                Assembly.GetAssembly(typeof(ImageResizer.ImageJob)).Location}
+                .SelectMany(s => new []{Path.GetDirectoryName(s), Path.GetDirectoryName(Path.GetDirectoryName(s))})
+                .SelectMany(s =>
+                    new []{ Path.Combine(s, Environment.Is64BitProcess ? "x64" : "x86"),
+                        Path.Combine(s, Environment.Is64BitProcess ? "x64" : "Win32"),
+                        s}
+                ).Distinct().Where(s => Directory.Exists(s)).ToArray();
+            
+            
+            AppDomain.CurrentDomain.AssemblyResolve += delegate(object sender, ResolveEventArgs args)
+            { 
+                var dllName = new AssemblyName(args.Name).Name + ".dll";
+                var searchLocations = searchFolders.Select(dir => Path.Combine(dir, dllName));
+                var existsAt = searchLocations.Where(p => File.Exists(p)).ToArray();
+                if (existsAt.Length < 1)
+                {
+                    throw new FileNotFoundException(dllName);
+                }
+                return Assembly.LoadFrom(existsAt.First());
 
-            Config c = new Config();
-            new SpeedOrQuality().Install(c);
+            };
+        }
 
-            Console.WriteLine();
-            Console.WriteLine("Evaluating benefits of SpeedOrQuality plugin at various settings");
-            foreach (string s in images) {
-                Console.WriteLine("In-memory resize of " + ImageInfo(s));
-                for (int rez = 100; rez < 800; rez += 200) {
+   
+
+
+        public static void EvaluateSpeedPlugin()
+        {
+            var settings = new BenchmarkingSettings();
+            settings.Images = new ImageProvider().AddLocalImages(imageDir, "quality-original.jpg", "fountain-small.jpg", "sample.tif", "private\\98613_17.tif");
+            
+            var sizes = new List<Instructions>();
+            for (int rez = 100; rez < 800; rez += 200){
+                sizes.Add(new Instructions(){Width = rez});
+            }
+            settings.SharedInstructions = sizes;
+
+            var configs = new List<Tuple<Config, Instructions, string>>();
+            configs.Add(new Tuple<Config,Instructions,string>(ConfigWithPlugins(),null,"Default"));
+
+            for (int i = 1; i < 4; i++)
+            {
+                configs.Add(new Tuple<Config, Instructions, string>(ConfigWithPlugins("SpeedOrQuality"), 
+                    new Instructions("speed=" + i.ToString()), "SpeedOrQuality plugin"));
+
+            }
+
+            settings.ExcludeDecoding = true;
+            settings.ExcludeEncoding = true;
+            settings.ExcludeIO = true;
+
+            Compare(settings, configs);
+        }
+
+        public class BenchmarkingSettings
+        {
+            public BenchmarkingSettings()
+            {
+                ThrowawayRuns = 1;
+                SequentialRuns = 8;
+                ParallelRuns = 2;
+                ParallelThreads = parallelThreads;
+                ExcludeDecoding = false;
+                ExcludeEncoding = true;
+                ExcludeBuilding = false;
+                ExcludeIO = true;
+                ShowProfileTree = true;
+                SegmentNameFilter = "op";
+                UseBarrierAroundSegment = false;
+                ExclusiveTimeSignificantMs = 5;
+            }
+            public int ThrowawayRuns { get; set; }
+            public int ThrowawayThreads { get; set; }
+
+            public int SequentialRuns { get; set; }
+            public int ParallelRuns { get; set; }
+            public int ParallelThreads { get; set; }
+
+            /// <summary>
+            /// Segments with less exclusive time than this will not be rendered
+            /// </summary>
+            /// 
+            public double ExclusiveTimeSignificantMs { get; set; }
+            public ImageProvider Images { get; set; }
+
+            public IEnumerable<Instructions> SharedInstructions { get; set; }
+
+            public bool ExcludeDecoding { get; set; }
+            public bool ExcludeBuilding { get; set; }
+            public bool ExcludeEncoding { get; set; }
+
+            public bool ExcludeIO { get; set; }
+
+            public bool ShowProfileTree { get; set; }
+
+            public string SegmentNameFilter { get; set; }
+
+            public bool UseBarrierAroundSegment { get; set; }
+        }
+
+        public static void Compare(BenchmarkingSettings settings, IEnumerable<Tuple<string, Instructions>> plugins){
+            Compare(settings, plugins.Select(t =>
+                {
+                    return new Tuple<Config, Instructions, string>(ConfigWithPlugins(t.Item1), t.Item2, t.Item1);
+                }));
+        }
+        public static void Compare(BenchmarkingSettings settings,
+            IEnumerable<Tuple<Config, Instructions, string>> configsAndLabels)
+        {
+            settings.Images.PrepareImagesAsync().Wait();
+            foreach (var pair in settings.Images.GetImagesAndDescriptions())
+            {
+                Console.WriteLine();
+                String isolation = (settings.SegmentNameFilter != "op" && !settings.UseBarrierAroundSegment) ? 
+                                "Measuring '" + settings.SegmentNameFilter + "' without memory barrier; multi-threaded results invalid." 
+                                : (settings.UseBarrierAroundSegment ? "Segment '" +  settings.SegmentNameFilter + "' w/ mem barrier." 
+                                : "Segment '" + settings.SegmentNameFilter +"'.");
+
+
+                Console.WriteLine("Using {0} seq. runs, {1} || on {2} threads({5}). {4} Input: {3}", 
+                    settings.SequentialRuns,settings.ParallelRuns,settings.ParallelThreads,pair.Item2, isolation,
+                    Environment.Is64BitProcess ? "64-bit" : "32-bit");
+
+                var widths = CalcColumnWidths(ConsoleWidth, 4, -2, -2, -2, -4);
+
+                Console.WriteLine(Distribute(widths, "Config", "Sequential", "Parallel", "Percent concurrent", "Instructions"));
+                foreach (var instructions in settings.SharedInstructions)
+                {
+
+                    var comparableResults = configsAndLabels.Select(triple =>
+                    {
+                        var combined = triple.Item2 == null ? instructions : new Instructions(triple.Item2.MergeDefaults(instructions));
+                        var runner = Benchmark.BenchmarkInMemory(triple.Item1, pair.Item1, combined, settings.ExcludeDecoding, settings.ExcludeEncoding);
+                        runner.ParallelRuns = settings.ParallelRuns;
+                        runner.ParallelThreads = settings.ParallelThreads;
+                        runner.SequentialRuns = settings.SequentialRuns;
+                        runner.Label = triple.Item3;
+                        runner.ThrowawayThreads = settings.ThrowawayThreads;
+                        runner.ThrowawayRuns = settings.ThrowawayRuns;
+
+                        if (settings.UseBarrierAroundSegment)
+                            runner.ProfilerProvider = (s,t) => new JobProfiler(s).JoinThreadsAroundSegment(settings.SegmentNameFilter,t);
+                        else
+                            runner.ProfilerProvider = (s, t) => new JobProfiler(s);
+
+                        var results = runner.Benchmark();
+
+                        Action<IConcurrencyResults> printStats = r =>
+                        {
+                            var statStrs = new List<string>(GetStats(triple.Item3, r.GetStats()));
+                            statStrs.Add(combined.ToString());
+                            Console.WriteLine(Distribute(widths, statStrs.ToArray()));
+                        };
+                        var set = results.FindSet(settings.SegmentNameFilter);
+                        printStats(set);
+
+                        if (settings.ShowProfileTree)
+                        {
+                            var f = new ConcurrencyResultFormatter();
+                            f.DeltaAbnormalRatio = 1000000;
+                            f.ExclusiveTimeSignificantMs = settings.ExclusiveTimeSignificantMs;
+                            Console.WriteLine(f.PrintCallTree(set));
+                        }
+                        return new Tuple<string, IConcurrencyResults>(triple.Item3, set);
+                    }).ToArray();
+
+                   
+
+                    var seqList = comparableResults.OrderBy(r => r.Item2.FastestSequentialMs()).
+                                                    Select((r, i) => string.Format("{0}. {1} {3:F2}X slower {2}",
+                                                        i + 1, r.Item1, r.Item2.GetStats().SequentialMs.ToString(0.05), 
+                                r.Item2.FastestSequentialMs() / comparableResults.Min(c => c.Item2.FastestSequentialMs())));
+
+
+                    Console.WriteLine("Sequential: \n" + string.Join("\n", seqList));
+
+                    var parList = comparableResults.OrderBy(r => r.Item2.ParallelRealMs()).
+                                                    Select((r, i) => string.Format("{0}. {1} {3:F2}X less throughput {2:F2}ms total. {4:F}% concurrent",
+                                                        i + 1, r.Item1, r.Item2.GetStats().ParallelRealMs, 
+                                r.Item2.ParallelRealMs() / comparableResults.Min(c => c.Item2.ParallelRealMs()), r.Item2.GetStats().ParallelConcurrencyPercent));
+
+                    Console.WriteLine("Parallel: \n" + string.Join("\n", parList));
+                    Console.WriteLine("\n");
+
+                }
+            }
+        }
+
+
+
+        public static void PlotByThreads(BenchmarkingSettings settings,
+           IEnumerable<Tuple<Config, Instructions, string>> configsAndLabels)
+        {
+            settings.Images.PrepareImagesAsync().Wait();
+
+           Console.WriteLine();
+           String isolation = (settings.SegmentNameFilter != "op" && !settings.UseBarrierAroundSegment) ?
+                                "Measuring '" + settings.SegmentNameFilter + "' without memory barrier; multi-threaded results invalid."
+                                : (settings.UseBarrierAroundSegment ? "Segment '" + settings.SegmentNameFilter + "' w/ mem barrier."
+                                : "Segment '" + settings.SegmentNameFilter + "'.") + (Environment.Is64BitProcess ? " 64-bit" : " 32-bit");
+           Console.WriteLine(isolation);
+
+            var combinations = settings.Images.GetImagesAndDescriptions().Combine(settings.SharedInstructions).Combine(configsAndLabels).Select(a => new Tuple<Tuple<string,string>, Instructions, Config, Instructions, string>(a.Item1.Item1, a.Item1.Item2, a.Item2.Item1, a.Item2.Item2, a.Item2.Item3));
+            foreach (var c in combinations)
+            {
+                var combined = c.Item4 == null ? c.Item2 : new Instructions(c.Item4.MergeDefaults(c.Item2));
+                var runner = Benchmark.BenchmarkInMemory(c.Item3,c.Item1.Item1, combined, settings.ExcludeDecoding, settings.ExcludeEncoding);
+                runner.Label = c.Item5;
+
+                if (settings.UseBarrierAroundSegment)
+                    runner.ProfilerProvider = (s, t) => new JobProfiler(s).JoinThreadsAroundSegment(settings.SegmentNameFilter, t);
+                else
+                    runner.ProfilerProvider = (s, t) => new JobProfiler(s);
+
+                Console.Write(runner.Label);
+                for (var threads = 1; threads <= Environment.ProcessorCount; threads++){
+
+
+                    if (threads > 1)
+                    {
+                        runner.SequentialRuns = 0;
+                        runner.ParallelRuns = settings.ParallelRuns;
+                        runner.ParallelThreads = threads;
+                    }
+                    else
+                    {
+                        runner.SequentialRuns = settings.SequentialRuns;
+                        runner.ParallelRuns = 0;
+                    }
+
+                    runner.ThrowawayThreads = threads;
+                    runner.ThrowawayRuns = settings.ThrowawayRuns;
                     
-                    for (int i = 0; i < 4; i++) {
-                        
-                        ResizeSettings set = new ResizeSettings();
-                        set.MaxWidth = rez;
-                        set.MaxHeight = rez;
-                        set["speed"] = i.ToString();
-                        Console.WriteLine("At speed=" + i + ", " + rez + "x" + rez + ", avg resize time=" + BenchmarkInMemory(c, s, set, false, true, true, 10) + ", avg total=" + BenchmarkInMemory(c, s, set, false, false, false, 5));
 
-                    }
-                    Console.WriteLine();
+                    var results = runner.Benchmark();
+
+                    var set = results.FindSet(settings.SegmentNameFilter);
+                   
+
+                    var time = threads == 1 ? set.GetStats().SequentialMs.Avg : set.ParallelRealMs();
+
+                    Console.Write(',');
+                    Console.Write(time.ToString("f0"));
                 }
-            }
-
-       
-        }
-
-        public static string ImageInfo(string file) {
-            using (Bitmap b = new Bitmap(file)) {
-                return file + " (" + b.Width + "x" + b.Height + ") (" + b.PixelFormat.ToString() + ")";
+                Console.WriteLine();
             }
         }
 
-        public static void CompareFreeImageToDefault(){
-            string[] images = new string[] { imageDir + "quality-original.jpg", imageDir + "fountain-small.jpg", imageDir + "sample.tif", imageDir + "\\private\\98613_17.tif" };
-
-            string dest = "dest.jpg";
-
-            Config c = new Config();
-            Config f = new Config();
-            new FreeImageBuilderPlugin().Install(f);
-
-            Config h = new Config();
-            new FreeImageDecoderPlugin().Install(h);
-            new FreeImageEncoderPlugin().Install(h);
-
-            Console.WriteLine();
-
-            Dictionary<string, Config> pipelines = new Dictionary<string, Config>();
-            pipelines.Add("Default", c);
-            pipelines.Add("FreeImageBuilder", f);
-            pipelines.Add("Hybrid", h);
-
-            ResizeSettings[] queries = new ResizeSettings[] { new ResizeSettings("maxwidth=200&maxheight=200&decoder=freeimage&builder=freeimage"), new ResizeSettings("&decoder=freeimage&builder=freeimage") };
-
-            foreach (string file in images) {
-                foreach (ResizeSettings s in queries) {
-                    Console.WriteLine();
-                    Console.WriteLine("Running in-memory test with " + file + s.ToString());
-                    foreach (string pipe in pipelines.Keys) {
-                        Console.Write(pipe.PadRight(25) + ": ");
-                        BenchmarkInMemory(pipelines[pipe],file, s);
-                    }
-                }
-            }
-
-            foreach (string file in images) {
-                foreach (ResizeSettings s in queries) {
-                    Console.WriteLine();
-                    Console.WriteLine("Running filesystem (flawed) test with " + file + s.ToString());
-                    foreach (string pipe in pipelines.Keys) {
-                        Console.Write(pipe.PadRight(25) + ": ");
-                        BenchmarkFileToFile(pipelines[pipe], file,dest, s);
-                    }
-                }
-            }
 
 
-       }
-
-
-
-        public static void CompareFreeImageDecoderToDefault() {
-            string[] images = new string[] { imageDir + "quality-original.jpg", imageDir + "fountain-small.jpg", 
-                imageDir + "\\extra\\cherry-blossoms.jpg",
-                imageDir + "\\extra\\mountain.jpg",
-                 imageDir + "\\extra\\dewdrops.jpg", imageDir + "sample.tif", imageDir + "\\private\\98613_17.tif" };
-
-
-            Config c = new Config();
-            new FreeImageDecoderPlugin().Install(c);
-
-            Console.WriteLine();
-            foreach(string s in images){
-                Console.WriteLine("Comparing FreeImage and standard decoders for " + s);
-                Console.Write("Default: ".PadRight(25));
-                BenchmarkDecoderInMemory(c, s, new ResizeSettings());
-                Console.Write("FreeImage: ".PadRight(25));
-                BenchmarkDecoderInMemory(c, s, new ResizeSettings("&decoder=freeimage"));
-            }
-            Console.WriteLine();
+        public static string[] GetStats(string label, SegmentStats stats){
+            return new string[]{
+                label + " - " + stats.SegmentName,
+                stats.SequentialMs.ToString(), stats.ParallelMs.ToString(),
+                stats.ParallelConcurrencyPercent.ToString("F") + "% t=" + stats.ParallelThreads.ToString()
+            };
         }
 
-        public static void CompareFreeImageEncoderToDefault() {
+        public static int[] CalcColumnWidths(int space, params double[] weights)
+        {
+            var totalWeight = weights.Sum(d => Math.Abs(d));
+            return weights.Select(w => (int)(w / totalWeight * space)).ToArray();
+        }
+        public static string Distribute( int[] colWidths, params string[] values){
+            if (colWidths.Count() != values.Count()) throw new ArgumentOutOfRangeException("values", "values and colWidths must have the same number of elements");
+            return string.Join("", values.Select((s, ix) => colWidths[ix] > 0 ? s.PadRight(colWidths[ix]) : s.PadLeft(-colWidths[ix])));
+        }
+        
+
+        public static Config ConfigWithPlugins(params string[] pluginNames)
+        {
+            var c = new Config();
+            foreach (var n in pluginNames)
+                if (c.Plugins.AddPluginByName(n, AutoLoadNative()) == null)
+                    throw new ArgumentOutOfRangeException("Failed to load plugin " +n);
+            return c;
+        }
+
+        public static void CompareFreeImageToDefault()
+        {
+            var settings = new BenchmarkingSettings();
+            settings.Images = new ImageProvider().AddLocalImages(imageDir, "quality-original.jpg", "fountain-small.jpg", "sample.tif", "private\\98613_17.tif");
+            settings.SharedInstructions = new Instructions[]{new Instructions(
+                "maxwidth=200&maxheight=200"), 
+                new Instructions()};
+
+          
+            var configs = new Tuple<Config, Instructions, string>[]{
+                    new Tuple<Config, Instructions, string>(ConfigWithPlugins(),null,"Default"),
+                    new Tuple<Config, Instructions, string>(ConfigWithPlugins("FreeImageBuilder"),new Instructions("builder=freeimage"),"FreeImageBuilder"),
+                    new Tuple<Config, Instructions, string>(ConfigWithPlugins("FreeImageDecoder","FreeImageEncoder"),new Instructions("decoder=freeimage&encoder=freeimage"),"Hybrid (FreeImage encoder/decoder, GDI+ resizer)")};
+            Compare(settings,configs);
+
+            settings.ExcludeIO = true;
+
+            Compare(settings, configs);
+
+        }
+
+        public static void CheckGdMemoryUse()
+        {
+            var imageSrc = new ImageProvider().AddBlankImages(new Tuple<int, int, string>[] { new Tuple<int, int, string>(4000, 4000, "jpg") });
+            imageSrc.PrepareImagesAsync().Wait();
+            var runner = Benchmark.BenchmarkInMemory(ConfigWithPlugins("GdBuilder"), imageSrc.GetImages().First(),
+                new Instructions("builder=gd&width=400"), false, false);
+            runner.Label = "GD";
+            CheckMemoryUse(runner, 2);
+        }
+
+        public static void CheckMemoryUse(BenchmarkRunner<ImageJob,JobProfiler> runner, int runMultiplier)
+        {
+            runner.ParallelRuns = runMultiplier;
+            runner.ParallelThreads = parallelThreads;
+            runner.SequentialRuns = runMultiplier * 8;
+            runner.ThrowawayThreads = parallelThreads;
+            runner.ThrowawayRuns = runMultiplier * 2;
+
+
+            Console.Write("Running {0} warmup (t={1}), {2} parallel (t={3}), {4} sequenetial\n", runner.ThrowawayRuns * runner.ThrowawayThreads, runner.ThrowawayThreads,
+                runner.ParallelRuns * runner.ParallelThreads, runner.ParallelThreads,
+                runner.SequentialRuns);
+            var results = runner.Benchmark();
+
+            Console.Write("Private bytes before: {0:F2}MB warm: {1:F2}MB after {2:F2}MB\n", results.PrivateBytesBefore / 1000000.0, results.PrivateBytesWarm / 1000000.0, results.PrivateBytesAfter / 1000000.0);
+            Console.Write("Managed bytes before: {0:F2}MB warm: {1:F2}MB after {2:F2}MB\n", results.ManagedBytesBefore / 1000000.0, results.ManagedBytesWarm / 1000000.0, results.ManagedBytesAfter / 1000000.0);
+        
+        }
+
+        public static void CompareGdToDefault(string segment = "op")
+        {
+            var settings = new BenchmarkingSettings();
+            settings.Images = new ImageProvider();
+            settings.Images.AddLocalImages(imageDir, "fountain-small.jpg");
+                //.AddBlankImages(new Tuple<int, int, string>[] { new Tuple<int, int, string>(2200, 2200, "jpg") });
+                //.AddLocalImages(imageDir, "quality-original.jpg", "fountain-small.jpg");
+            settings.SharedInstructions = new Instructions[]{new Instructions(
+                "width=800&scale=both")};
+            settings.ExcludeEncoding = false;
+            settings.ExcludeDecoding = false;
+            settings.ExcludeBuilding = false;
+            settings.ExcludeIO = true;
+            settings.ParallelRuns = 2;
+            settings.SegmentNameFilter = segment;
+            settings.ParallelThreads = parallelThreads;
+            settings.SequentialRuns = 16;
+            settings.ThrowawayRuns = 2;
+            settings.ThrowawayThreads = parallelThreads;
+            settings.UseBarrierAroundSegment = true;
+
+            var configs = new Tuple<Config, Instructions, string>[]{
+                    new Tuple<Config, Instructions, string>(ConfigWithPlugins(),null,"Default"),
+                    new Tuple<Config, Instructions, string>(ConfigWithPlugins("GdBuilder"),new Instructions("builder=gd"),"GdBuilder")};
+
+            Compare(settings, configs.Reverse());
+
+
+        }
+
+        public static BenchmarkingSettings BenchmarkingDefaults()
+        {
+            var settings = new BenchmarkingSettings();
+            settings.Images = new ImageProvider(); 
+            settings.ExcludeEncoding = false;
+            settings.ExcludeDecoding = false;
+            settings.ExcludeBuilding = false;
+            settings.ExcludeIO = true;
+            settings.ParallelRuns = 2;
+
+            settings.ParallelThreads = parallelThreads;
+            settings.SequentialRuns = 16;
+            settings.ThrowawayRuns = 2;
+            settings.ThrowawayThreads = parallelThreads;
+            settings.UseBarrierAroundSegment = true;
+            return settings;
+        }
+        public static BenchmarkingSettings ScalingComparisonDefault()
+        {
+            var settings = BenchmarkingDefaults();
+            settings.Images.AddBlankImages(new Tuple<int, int, string>[] { new Tuple<int, int, string>(3264, 2448, "jpg"), new Tuple<int, int, string>(1200, 900, "png") });
+            settings.SharedInstructions = new Instructions[]{new Instructions(
+                "width=800&scale=both") , new Instructions("width=200&scale=both")};
+            return settings;
+        }
+
+        public static void CheckFastScalingMemoryUse()
+        {
+            var imageSrc = new ImageProvider().AddBlankImages(new Tuple<int, int, string>[] { new Tuple<int, int, string>(4000, 4000, "jpg") });
+            imageSrc.PrepareImagesAsync().Wait();
+            var runner = Benchmark.BenchmarkInMemory(ConfigWithPlugins("ImageResizer.Plugins.FastScaling.FastScalingPlugin, ImageResizer.Plugins.FastScaling"), imageSrc.GetImages().First(),
+                new Instructions("down.filter=lanczos"), false, false);
+            runner.Label = "FastScaling";
+            CheckMemoryUse(runner, 2);
+        }
+
+
+        public static void CompareFastScalingToDefault(string segment = "op")
+        {
+            var settings = BenchmarkingDefaults();
+            settings.Images.AddBlankImages(
+                new Tuple<int, int, string>[] { new Tuple<int, int, string>(4000, 3000, "jpg"), new Tuple<int, int, string>(1600, 800, "png") });
+            settings.SharedInstructions = new Instructions[]{new Instructions(
+                "width=800&scale=both") , new Instructions("width=200&scale=both")};
+     
+            settings.SegmentNameFilter = segment;
+            settings.ExclusiveTimeSignificantMs = 1;
+            var configs = new Tuple<Config, Instructions, string>[]{
+                    new Tuple<Config, Instructions, string>(ConfigWithPlugins(),null,"System.Drawing"),
+                    new Tuple<Config, Instructions, string>(ConfigWithPlugins("ImageResizer.Plugins.FastScaling.FastScalingPlugin, ImageResizer.Plugins.FastScaling"),new Instructions("fastscale=true;&down.speed=5&f.ignorealpha=true"),"FastScaling speed prioritized"),
+                    new Tuple<Config, Instructions, string>(ConfigWithPlugins("ImageResizer.Plugins.FastScaling.FastScalingPlugin, ImageResizer.Plugins.FastScaling"),new Instructions("fastscale=true"),"FastScaling quality optimized")};
+
+            Compare(settings, configs.Reverse());
+
+
+        }
+
+
+
+
+
+        public static void CompareFastScalingByThreading(string segment = "op")
+        {
+   
+            var settings = BenchmarkingDefaults();
+            settings.Images.AddBlankImages(
+                new Tuple<int, int, string>[] { new Tuple<int, int, string>(4000, 4000, "jpg")});
+            settings.SharedInstructions = new Instructions[]{new Instructions(
+                "width=800&scale=both") };
+
+            settings.ThrowawayRuns = 2;
+            settings.SequentialRuns = 4;
+            settings.ParallelRuns = 2;
+            settings.SegmentNameFilter = segment;
+            settings.ExclusiveTimeSignificantMs = 1;
+            var configs = new Tuple<Config, Instructions, string>[]{
+                    new Tuple<Config, Instructions, string>(ConfigWithPlugins(),null,"System.Drawing"),
+                    new Tuple<Config, Instructions, string>(ConfigWithPlugins("ImageResizer.Plugins.FastScaling.FastScalingPlugin, ImageResizer.Plugins.FastScaling"),new Instructions("fastscale=true;&down.speed=5&f.ignorealpha=true"),"FastScaling speed prioritized"),
+                    new Tuple<Config, Instructions, string>(ConfigWithPlugins("ImageResizer.Plugins.FastScaling.FastScalingPlugin, ImageResizer.Plugins.FastScaling"),new Instructions("fastscale=true"),"FastScaling quality optimized")};
+
+            PlotByThreads(settings, configs);
+            
+        }
+
+
+
+        public static void CompareFastScalingToWic(string segment = "op")
+        {
+            var settings = BenchmarkingDefaults();
+            settings.Images.AddBlankImages(
+                new Tuple<int, int, string>[] { new Tuple<int, int, string>(4000, 3000, "jpg"), new Tuple<int, int, string>(1600, 800, "png") });
+            settings.SharedInstructions = new Instructions[]{new Instructions(
+                "width=800&scale=both") , new Instructions("width=200&scale=both")};
+
+            settings.SegmentNameFilter = segment;
+            settings.ExclusiveTimeSignificantMs = 1;
+            var configs = new Tuple<Config, Instructions, string>[]{
+                    new Tuple<Config, Instructions, string>(ConfigWithPlugins(),null,"System.Drawing"),
+                    new Tuple<Config, Instructions, string>(ConfigWithPlugins("ImageResizer.Plugins.FastScaling.FastScalingPlugin, ImageResizer.Plugins.FastScaling"),new Instructions("fastscale=true;&down.speed=5&f.ignorealpha=true"),"FastScaling speed prioritized"),
+                    new Tuple<Config, Instructions, string>(ConfigWithPlugins("ImageResizer.Plugins.WicBuilder.WicBuilderPlugin, ImageResizer.Plugins.Wic"),new Instructions("builder=wic"),"WIC pipeline (speed prioritized)")};
+
+            Compare(settings, configs.Reverse());
+
+
+        }
+
+
+        public static void CompareDefaultToWic(string segment = "op")
+        {
+            var settings = BenchmarkingDefaults();
+            //settings.ParallelRuns = 0;
+            //settings.SequentialRuns = 1;
+            //settings.ThrowawayRuns = 0;
+            settings.Images.AddBlankImages(
+                new Tuple<int, int, string>[] { new Tuple<int, int, string>(1600, 800, "png") });
+            settings.SharedInstructions = new Instructions[]{ new Instructions("width=200&scale=both")};
+
+            settings.SegmentNameFilter = segment;
+            settings.ExclusiveTimeSignificantMs = 1;
+            var configs = new Tuple<Config, Instructions, string>[]{
+                    new Tuple<Config, Instructions, string>(ConfigWithPlugins(),null,"System.Drawing"),
+                    new Tuple<Config, Instructions, string>(ConfigWithPlugins("ImageResizer.Plugins.WicBuilder.WicBuilderPlugin, ImageResizer.Plugins.Wic"),new Instructions("builder=wic"),"WIC pipeline (speed prioritized)")};
+
+            Compare(settings, configs.Reverse());
+
+
+        }
+
+        public static void CompareFastScalingToDefaultHQ(string segment = "op")
+        {
+            var settings = BenchmarkingDefaults();
+            settings.Images.AddBlankImages(
+                new Tuple<int, int, string>[] { new Tuple<int, int, string>(4800, 2400, "jpg"), new Tuple<int, int, string>(1600, 800, "png") });
+            settings.SharedInstructions = new Instructions[]{new Instructions(
+                "width=800&scale=both") , new Instructions("width=200&scale=both")};
+
+            settings.SegmentNameFilter = segment;
+            settings.ExclusiveTimeSignificantMs = 1;
+            //settings.ParallelThreads = 2;
+            var configs = new Tuple<Config, Instructions, string>[]{
+                    new Tuple<Config, Instructions, string>(ConfigWithPlugins(),null,"System.Drawing"),
+                    new Tuple<Config, Instructions, string>(ConfigWithPlugins("ImageResizer.Plugins.FastScaling.FastScalingPlugin, ImageResizer.Plugins.FastScaling"),new Instructions("fastscale=true&down.filter=fastcubic"),"FastCubic"),
+                    new Tuple<Config, Instructions, string>(ConfigWithPlugins("ImageResizer.Plugins.FastScaling.FastScalingPlugin, ImageResizer.Plugins.FastScaling"),new Instructions("fastscale=true&down.filter=robidoux"),"Robidoux"),
+                    new Tuple<Config, Instructions, string>(ConfigWithPlugins("ImageResizer.Plugins.FastScaling.FastScalingPlugin, ImageResizer.Plugins.FastScaling"),new Instructions("fastscale=true&down.filter=ginseng&down.speed=-2"),"Ginseng with no halving")};
+
+            Compare(settings, configs.Reverse());
+
+
+        }
+
+
+
+        public static void CompareFastScalingSpeeds(string segment = "op")
+        {
+            var settings = BenchmarkingDefaults();
+            settings.Images.AddBlankImages(
+                new Tuple<int, int, string>[] { new Tuple<int, int, string>(4800, 4800, "jpg"), new Tuple<int, int, string>(2400, 2400, "png") });
+            settings.SharedInstructions = new Instructions[]{ new Instructions("width=720"), new Instructions("width=133")};
+
+
+            settings.SegmentNameFilter = segment;
+            var c = ConfigWithPlugins("ImageResizer.Plugins.FastScaling.FastScalingPlugin, ImageResizer.Plugins.FastScaling");
+            var configs = new Tuple<Config, Instructions, string>[]{
+              //      new Tuple<Config, Instructions, string>(ConfigWithPlugins(),null,"System.Drawing"),
+              
+              
+                    new Tuple<Config, Instructions, string>(c,new Instructions("&fastscale=true&down.speed=0"),"FastScaling with speed=0"),
+                    new Tuple<Config, Instructions, string>(c,new Instructions("&fastscale=true&down.speed=1"),"FastScaling with speed=1"),
+                    new Tuple<Config, Instructions, string>(c,new Instructions("&fastscale=true&down.speed=2"),"FastScaling with speed=2"),
+                    
+                    new Tuple<Config, Instructions, string>(c,new Instructions("&fastscale=true&down.speed=3"),"FastScaling with speed=3"),
+                    new Tuple<Config, Instructions, string>(c,new Instructions("&fastscale=true&down.speed=4"),"FastScaling with speed= 4"), 
+            
+                    new Tuple<Config, Instructions, string>(c,new Instructions("&fastscale=true&down.speed=5"),"FastScaling with speed= 5")/*
+        
+                    new Tuple<Config, Instructions, string>(c,new Instructions("&fastscale=true&speed=2"),"FastScaling with speed=2")*/};
+
+            Compare(settings, configs);
+        }
+
+
+        private static NameValueCollection AutoLoadNative()
+        {
+            var n = new NameValueCollection();
+            n["downloadNativeDependencies"] = "true";
+            return n;
+        }
+
+        public static void CompareFreeImageEncoderToDefault()
+        {
             string[] images = new string[] { imageDir + "quality-original.jpg", imageDir + "fountain-small.jpg", 
                 imageDir + "\\extra\\cherry-blossoms.jpg",
                 imageDir + "\\extra\\mountain.jpg",
@@ -162,23 +645,30 @@ namespace Bench {
 
             Config c = new Config();
             Config p = new Config();
-            new PrettyGifs().Install(p);
-            Config f = new Config();
-            new FreeImageEncoderPlugin().Install(f);
+            if (p.Plugins.AddPluginByName("PrettyGifs", AutoLoadNative()) == null)
+                throw new ArgumentOutOfRangeException("Failed to load PrettyGifs plugin");
 
-            ResizeSettings[] queries = new ResizeSettings[] { new ResizeSettings("format=jpg"), new ResizeSettings("format=png"), new ResizeSettings("format=gif") };
+   
+            Config f = new Config();
+            if (f.Plugins.AddPluginByName("FreeImageEncoder", AutoLoadNative()) == null)
+                throw new ArgumentOutOfRangeException("Failed to load FreeImageEncoder plugin");
+
+
+            Instructions[] queries = new Instructions[] { new Instructions("format=jpg"), new Instructions("format=png"), new Instructions("format=gif") };
 
 
             Console.WriteLine();
-            foreach (string s in images) {
-                foreach (ResizeSettings query in queries) {
+            foreach (string s in images)
+            {
+                foreach (var query in queries)
+                {
                     Console.WriteLine("Comparing FreeImage and standard encoders for " + s + query.ToString());
                     Console.Write("Default: ".PadRight(25));
-                    BenchmarkEncoderInMemory(c, c.CurrentImageBuilder.LoadImage(s, query), query);
+                    Benchmark.BenchmarkEncoderInMemory(c, s, query);
                     Console.Write("PrettyGifs: ".PadRight(25));
-                    BenchmarkEncoderInMemory(p, p.CurrentImageBuilder.LoadImage(s, query), query);
+                    Benchmark.BenchmarkEncoderInMemory(p, s, query);
                     Console.Write("FreeImage: ".PadRight(25));
-                    BenchmarkEncoderInMemory(f, f.CurrentImageBuilder.LoadImage(s, query), query);
+                    Benchmark.BenchmarkEncoderInMemory(f, s, query);
                 }
             }
             Console.WriteLine();
@@ -186,101 +676,5 @@ namespace Bench {
 
 
 
-        /// <summary>
-        /// This is inherently flawed - the unpredictability and inconsistency of disk and NTFS performance makes these results difficult to read.
-        /// </summary>
-        public static void BenchmarkFileToFile(Config c, string source, string dest, ResizeSettings settings) {
-            int loops = 20;
-            Stopwatch s = new Stopwatch();
-            s.Start();
-            c.CurrentImageBuilder.Build(source, dest, settings);
-            s.Stop();
-            Console.Write("First: " + s.ElapsedMilliseconds.ToString() + "ms");
-            s.Reset();
-            s.Start();
-            for (int i = 0; i < loops; i++) {
-                c.CurrentImageBuilder.Build(source, dest, settings);
-            }
-            s.Stop();
-            Console.Write(" Avg(" + loops + "):" + (s.ElapsedMilliseconds / loops).ToString() + "ms");
-            Console.WriteLine();
-        }
-
-        public static long BenchmarkInMemory(Config c, string source, ResizeSettings settings) {
-            return BenchmarkInMemory(c, source, settings, true);
-        }
-        public static long BenchmarkInMemory(Config c, string source,  ResizeSettings settings, bool outputResults, bool excludeDecoding = false, bool excludeEncoding = true, int loops = 20) {
-            MemoryStream ms;
-            using (FileStream fs = new FileStream(source, FileMode.Open, FileAccess.Read)){
-                ms = StreamExtensions.CopyToMemoryStream(fs);
-            }
-            MemoryStream dest = new MemoryStream(4096);
-            ms.Seek(0, SeekOrigin.Begin);
-            object src = excludeDecoding ? (object)c.CurrentImageBuilder.LoadImage(ms, settings) : (object)ms;
-            Stopwatch s = new Stopwatch();
-            s.Start();
-            ms.Seek(0, SeekOrigin.Begin);
-            c.CurrentImageBuilder.Build(ms, dest, settings, false);
-            dest.Seek(0, SeekOrigin.Begin);
-            dest.SetLength(0);
-            s.Stop();
-            if (outputResults) Console.Write("First:" + s.ElapsedMilliseconds.ToString() + "ms");
-            s.Reset();
-            s.Start();
-            for (int i = 0; i < loops; i++) {
-                ms.Seek(0, SeekOrigin.Begin);
-                if (excludeEncoding)
-                    c.CurrentImageBuilder.Build(src, settings, false).Dispose();
-                else
-                    c.CurrentImageBuilder.Build(src, dest, settings, false);
-            }
-            s.Stop();
-            if (outputResults) Console.Write(" Avg(" + loops + "):" + (s.ElapsedMilliseconds / loops).ToString() + "ms");
-            if (outputResults) Console.WriteLine();
-            return (s.ElapsedMilliseconds / loops);
-        }
-
-        public static void BenchmarkDecoderInMemory(Config c, string source, ResizeSettings settings) {
-            MemoryStream ms;
-            using (FileStream fs = new FileStream(source, FileMode.Open, FileAccess.Read)) {
-                ms = StreamExtensions.CopyToMemoryStream(fs);
-            }
-
-            int loops = 20;
-            Stopwatch s = new Stopwatch();
-            s.Start();
-            c.CurrentImageBuilder.LoadImage(ms,settings).Dispose();
-            s.Stop();
-            Console.Write("First: " + s.ElapsedMilliseconds.ToString() + "ms");
-            s.Reset();
-            s.Start();
-            for (int i = 0; i < loops; i++) {
-                ms.Seek(0, SeekOrigin.Begin);
-                c.CurrentImageBuilder.LoadImage(ms, settings).Dispose();
-            }
-            s.Stop();
-            Console.WriteLine(" Avg(" + loops + "): " + (s.ElapsedMilliseconds / loops).ToString() + "ms");
-        }
-
-        public static void BenchmarkEncoderInMemory(Config c, Image img, ResizeSettings settings) {
-            MemoryStream ms = new MemoryStream();
-
-            int loops = 20;
-            Stopwatch s = new Stopwatch();
-            s.Start();
-            c.CurrentImageBuilder.EncoderProvider.GetEncoder(settings, img).Write(img, ms);
-            s.Stop();
-            Console.Write("First: " + s.ElapsedMilliseconds.ToString() + "ms");
-            s.Reset();
-            s.Start();
-            for (int i = 0; i < loops; i++) {
-                ms.Seek(0, SeekOrigin.Begin);
-                ms.SetLength(0);
-                IEncoder ie = c.CurrentImageBuilder.EncoderProvider.GetEncoder(settings, img);
-                ie.Write(img, ms);
-            }
-            s.Stop();
-            Console.WriteLine("Avg(" + loops + "): " + (s.ElapsedMilliseconds / loops).ToString() + "ms");
-        }
     }
 }

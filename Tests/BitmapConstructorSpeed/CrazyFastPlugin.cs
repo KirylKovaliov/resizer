@@ -1,3 +1,7 @@
+// Copyright (c) Imazen LLC.
+// No part of this project, including this file, may be copied, modified,
+// propagated, or distributed except as permitted in COPYRIGHT.txt.
+// Licensed under the Apache License, Version 2.0.
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
@@ -6,6 +10,7 @@ using System.IO;
 using ImageResizer.Util;
 using System.Drawing;
 using System.Reflection;
+using ImageResizer.ExtensionMethods;
 
 namespace ImageResizer.Plugins.CrazyFast {
     public class CrazyFastPlugin:BuilderExtension, IPlugin {
@@ -17,7 +22,7 @@ namespace ImageResizer.Plugins.CrazyFast {
             if (settings != null && "true".Equals(settings["ignoreicc"], StringComparison.OrdinalIgnoreCase)) useICM = false;
             Bitmap b;
             //NDJ - May 24, 2011 - Copying stream into memory so the original can be closed safely.
-            MemoryStream ms = StreamUtils.CopyStream(s);
+            MemoryStream ms = s.CopyToMemoryStream();
             //b = new Bitmap(ms, useICM); 
             b = FastBitmapLoader(ms, useICM);
             b.Tag = new BitmapTag(optionalPath, ms); //May 25, 2011: Storing a ref to the MemorySteam so it won't accidentally be garbage collected.

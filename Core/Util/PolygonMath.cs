@@ -1,4 +1,8 @@
-﻿/* Copyright (c) 2011 Nathanael Jones. See license.txt */
+// Copyright (c) Imazen LLC.
+// No part of this project, including this file, may be copied, modified,
+// propagated, or distributed except as permitted in COPYRIGHT.txt.
+// Licensed under the Apache License, Version 2.0.
+﻿
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -92,7 +96,7 @@ namespace ImageResizer.Util
         /// <summary>
         /// Rotates the specified polygon (or set of points) around the origin. 
         /// </summary>
-		/// <param name="poly"></param>
+        /// <param name="poly"></param>
         /// <param name="degrees"></param>
         /// <returns></returns>
         public static PointF[] RotatePoly(PointF[] poly, double degrees)
@@ -106,9 +110,9 @@ namespace ImageResizer.Util
         /// <summary>
         /// Rotates the specified polygon (or set of points) around the origin. 
         /// </summary>
-		/// <param name="poly"></param>
+        /// <param name="poly"></param>
         /// <param name="degrees"></param>
-		/// <param name="origin"></param>
+        /// <param name="origin"></param>
         /// <returns></returns>
         public static PointF[] RotatePoly(PointF[] poly, double degrees, PointF origin) {
             PointF[] pts = new PointF[poly.Length];
@@ -178,12 +182,12 @@ namespace ImageResizer.Util
         /// </summary>
         /// <param name="v"></param>
         /// <param name="radians"></param>
-		/// <param name="origin"></param>
+        /// <param name="origin"></param>
         /// <returns></returns>
         public static PointF RotateVector(PointF v, double radians, PointF origin)
         {
 /*
-			 * 2D Rotation
+             * 2D Rotation
              *  A point <x,y> can be rotated around the origin <0,0> by running it through the following equations 
              * to get the new point <x',y'> :
              * x' = cos(theta)*x - sin(theta)*y //cos(90) or cos(-90) = 0
@@ -233,7 +237,7 @@ namespace ImageResizer.Util
         /// <summary>
         /// Returns a bounding box for the specified set of points. Odd points are Y values, even points are X values
         /// </summary>
-        /// <param name="points"></param>
+        /// <param name="flattenedPoints"></param>
         /// <returns></returns>
         public static RectangleF GetBoundingBox(double[] flattenedPoints)  {
             double? minx = null, maxx = null, miny = null, maxy = null;
@@ -252,7 +256,7 @@ namespace ImageResizer.Util
         /// <summary>
         /// Returns a modified version of the array, with each element being offset by the specified amount.
         /// </summary>
-		/// <param name="points"></param>
+        /// <param name="points"></param>
         /// <param name="offset"></param>
         /// <returns></returns>
         public static PointF[] MovePoly(PointF[] points, PointF offset)
@@ -301,7 +305,7 @@ namespace ImageResizer.Util
         /// <summary>
         /// Determines the width and height of the paralellogram.
         /// </summary>
-		/// <param name="p"></param>
+        /// <param name="p"></param>
         /// <returns></returns>
         public static SizeF getParallelogramSize(PointF[] p) {
             double width = Math.Sqrt(Math.Pow(p[0].X - p[1].X,2) + Math.Pow(p[0].Y - p[1].Y,2));
@@ -358,8 +362,8 @@ namespace ImageResizer.Util
         /// <summary>
         /// Scales 'inner' to fit inside 'bounding' while maintaining aspect ratio. Upscales and downscales.
         /// </summary>
-		/// <param name="inner"></param>
-		/// <param name="bounding"></param>
+        /// <param name="inner"></param>
+        /// <param name="bounding"></param>
         /// <returns></returns>
         public static SizeF ScaleInside(SizeF inner, SizeF bounding )
         {
@@ -381,8 +385,8 @@ namespace ImageResizer.Util
         /// <summary>
         /// Scales 'outer' to be equal or larger than 'innerBounds' while maintaining aspect ratio. Upscales and downscales.
         /// </summary>
-		/// <param name="innerBounds"></param>
-		/// <param name="outer"></param>
+        /// <param name="innerBounds"></param>
+        /// <param name="outer"></param>
         /// <returns></returns>
         public static SizeF ScaleOutside(SizeF innerBounds, SizeF outer) {
             
@@ -402,8 +406,8 @@ namespace ImageResizer.Util
         /// <summary>
         /// Scales 'inner' to fit inside 'bounding' while maintaining aspect ratio. Only downscales.
         /// </summary>
-		/// <param name="inner"></param>
-		/// <param name="bounding"></param>
+        /// <param name="inner"></param>
+        /// <param name="bounding"></param>
         /// <returns></returns>
         public static SizeF DownScaleInside(SizeF inner, SizeF bounding)
         {
@@ -430,8 +434,8 @@ namespace ImageResizer.Util
         ///
         /// TODO - some rounding issues going on, not exact numbers here
         /// </summary>
-		/// <param name="poly"></param>
-		/// <param name="width"></param>
+        /// <param name="poly"></param>
+        /// <param name="width"></param>
         /// <returns></returns>
         public static PointF[,] GetCorners(PointF[] poly, float width)
         {
@@ -516,7 +520,7 @@ namespace ImageResizer.Util
         /// Expands all sides on the specified polygon by the specified offset. Assumes the polygon is concave.
         /// Returns a new polygon
         /// </summary>
-		/// <param name="poly"></param>
+        /// <param name="poly"></param>
         /// <param name="offset"></param>
         /// <returns></returns>
         public static PointF[] InflatePoly(PointF[] poly, float offset)
@@ -534,7 +538,7 @@ namespace ImageResizer.Util
         /// Returns a new polygon.
         /// 
         /// </summary>
-		/// <param name="poly"></param>
+        /// <param name="poly"></param>
         /// <param name="offsets">An array the same size as poly[], with the distances to expand the edges. Edges are between i and i+1</param>
         /// <returns></returns>
         public static PointF[] InflatePoly(PointF[] poly, float[] offsets)
@@ -580,7 +584,20 @@ namespace ImageResizer.Util
         /// <returns></returns>
         public static Rectangle ToRectangle(RectangleF r)
         {
-            return new Rectangle((int)Math.Round(r.X), (int)Math.Round(r.Y), (int)Math.Round(r.Width),(int)Math.Round( r.Height));
+            //As of 2016-01-31: Avoids turning (0.5,0.5,2.5,2.5) into (1,1,4,4) 
+            return new Rectangle((int)Math.Round(r.X), (int)Math.Round(r.Y), (int)Math.Round(r.Right) - (int)Math.Round(r.X), (int)Math.Round(r.Bottom) - (int)Math.Round(r.Y));
+
+        }
+
+        /// <summary>
+        /// Round a floating-point rectangle by apply ceil to x/y and floor to width/height
+        /// </summary>
+        /// <param name="r"></param>
+        /// <returns></returns>
+        public static Rectangle ToRectangleShrinkRound(RectangleF r)
+        {
+
+            return new Rectangle((int)Math.Ceiling(r.X), (int)Math.Ceiling(r.Y), (int)Math.Floor(r.Width - (Math.Ceiling(r.X) - r.X)), (int)Math.Floor(r.Height - (Math.Ceiling(r.Y) - r.Y)));
         }
 
         public static Size RoundPoints(SizeF sizeF) {
@@ -663,8 +680,8 @@ namespace ImageResizer.Util
         /// <summary>
         /// Returns the distance between two points
         /// </summary>
-        /// <param name="pointF"></param>
-        /// <param name="pointF_2"></param>
+        /// <param name="a"></param>
+        /// <param name="b"></param>
         /// <returns></returns>
         public static double Dist(PointF a, PointF b) {
             return Math.Sqrt((b.X - a.X) * (b.X - a.X) + (b.Y - a.Y) * (b.Y - a.Y));

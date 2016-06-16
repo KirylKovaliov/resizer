@@ -1,3 +1,7 @@
+// Copyright (c) Imazen LLC.
+// No part of this project, including this file, may be copied, modified,
+// propagated, or distributed except as permitted in COPYRIGHT.txt.
+// Licensed under the Apache License, Version 2.0.
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
@@ -34,15 +38,6 @@ namespace ImageResizer {
          * 
          * 
          */
-
-
-        //public static explicit operator string(Instructions s) {
-        //    return PathUtils.BuildQueryString(s, true);
-        //}
-
-        //public static explicit operator Instructions(string s) {
-        //    return new Instructions(PathUtils.ParseQueryStringFriendlyAllowSemicolons(s));
-        //}
 
         /// <summary>
         /// Returns a human-friendly representation of the instruction set. Not suitable for URL usage; use ToQueryString() for that.
@@ -163,13 +158,7 @@ namespace ImageResizer {
         /// <summary>
         /// An X1,Y1,X2,Y2 array of coordinates. Unless CropXUnits and CropYUnits are specified, these are in the coordinate space of the original image.
         /// </summary>
-        [Obsolete("Use CropRectangle instead; this member is provided for backwards compatibility reasons only, and will be removed in the next major release")] //DROP4
-        public double[] CropRectange {get { return NameValueCollectionExtensions.GetList<double>(this, "crop",0,4);}set{NameValueCollectionExtensions.SetList(this, "crop",value,true,4);}}
-
-        /// <summary>
-        /// An X1,Y1,X2,Y2 array of coordinates. Unless CropXUnits and CropYUnits are specified, these are in the coordinate space of the original image.
-        /// </summary>
-        public double[] CropRectangle { get { return NameValueCollectionExtensions.GetList<double>(this, "crop", 0, 4); } set { NameValueCollectionExtensions.SetList(this, "crop", value, true, 4); } }
+        public double[] CropRectangle { get { return this.GetList<double>("crop", 0, 4); } set { this.SetList("crop", value, true, 4); } }
 
 
         /// <summary>
@@ -322,7 +311,7 @@ namespace ImageResizer {
         /// Gets or sets a 1 or 4-element array defining cornder radii. If the array is 1 element, it applies to all corners. If it is 4 elements, each corner gets an individual radius. Values are percentages of the image width or height, whichever is smaller.
         /// Requires the SimpleFilters plugin.
         /// </summary>
-        public double[] RoundCorners { get { return NameValueCollectionExtensions.GetList<double>(this, "s.roundcorners", 0, 4, 1); } set { NameValueCollectionExtensions.SetList(this, "s.roundcorners", value, true, 4, 1); } }
+        public double[] RoundCorners { get { return this.GetList<double>( "s.roundcorners", 0, 4, 1); } set { this.SetList("s.roundcorners", value, true, 4, 1); } }
 
 
 

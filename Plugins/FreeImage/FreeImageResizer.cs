@@ -1,3 +1,8 @@
+// Copyright (c) Imazen LLC.
+// No part of this project, including this file, may be copied, modified,
+// propagated, or distributed except as permitted in COPYRIGHT.txt.
+// Licensed under the GNU Affero General Public License, Version 3.0.
+// Commercial licenses available at http://imageresizing.net/
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
@@ -9,23 +14,41 @@ using System.Drawing;
 using ImageResizer.Plugins.FreeImageResizer;
 using ImageResizer.Plugins.FreeImageScaling;
 
+/// Adds support for FreeImage resizing algorithms, which include CatmullRom, Lanczos3, bspline, box, bicubic, and bilinear filters.
 namespace ImageResizer.Plugins.FreeImageResizer { public class FreeImageResizerPlugin : FreeImageScalingPlugin { public FreeImageResizerPlugin() { } } }
 
-
 namespace ImageResizer.Plugins.FreeImageScaling {
+    /// <summary>
+    /// Adds support for scaling.
+    /// </summary>
     public class FreeImageScalingPlugin : BuilderExtension, IPlugin, IQuerystringPlugin {
+        /// <summary>
+        /// Creates a new instance of the FreeImageScaling plugin.
+        /// </summary>
         public FreeImageScalingPlugin() {
         }
+        /// <summary>
+        /// Adds the plugin to the given configuration container
+        /// </summary>
+        /// <param name="c"></param>
+        /// <returns></returns>
         public IPlugin Install(Configuration.Config c) {
             c.Plugins.add_plugin(this);
             return this;
         }
-
+        /// <summary>
+        /// Removes the plugin from the given configuration container
+        /// </summary>
+        /// <param name="c"></param>
+        /// <returns></returns>
         public bool Uninstall(Configuration.Config c) {
             c.Plugins.remove_plugin(this);
             return true;
         }
-
+        /// <summary>
+        /// Returns the querystrings command keys supported by this plugin. 
+        /// </summary>
+        /// <returns></returns>
         public IEnumerable<string> GetSupportedQuerystringKeys() {
             return new string[] { "fi.scale" };
         }
@@ -55,9 +78,7 @@ namespace ImageResizer.Plugins.FreeImageScaling {
             FREE_IMAGE_FILTER filter = ParseResizeAlgorithm(sf, FREE_IMAGE_FILTER.FILTER_CATMULLROM, out validAlg);
             if (!validAlg) throw new ImageProcessingException("The specified resizing filter '" + sf + "' did not match bicubic, bilinear, box, bspline, catmullrom, or lanczos.");
 
-            //Set copy attributes
-            s.copyAttibutes.SetWrapMode(WrapMode.TileFlipXY);
-
+            
 
             //The minimum dimensions of the temporary bitmap.
             SizeF targetSize = PolygonMath.getParallelogramSize(s.layout["image"]);

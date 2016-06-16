@@ -27,13 +27,15 @@ $plugins$
  </description>
 		<tags>ImageResizer Imazen Resizer AdvancedFilters guassian blur smart sharpen noise remove auto white balance filters imaging</tags>
 		<dependencies>
-		  <dependency id="ImageResizer"/>
-		  <dependency id="AForge.Imaging"/>
+		  <dependency id="ImageResizer" version="[$version$,)" />
+		  <dependency id="AForge" version="[2.2.5,)" />
+		  <dependency id="AForge.Math" version="[2.2.5,)" />
+		  <dependency id="AForge.Imaging" version="[2.2.5,)" />
 		</dependencies>
 	</metadata>
   	<files>
-		<file src="$pluginsdlldir$\ImageResizer.Plugins.AdvancedFilters.dll" target="lib" />
-		<file src="$pluginsdlldir$\ImageResizer.Plugins.AdvancedFilters.xml" target="lib" />
+		<file src="$pluginsdlldir$\ImageResizer.Plugins.AdvancedFilters.dll" target="lib\net45" />
+		<file src="$pluginsdlldir$\ImageResizer.Plugins.AdvancedFilters.xml" target="lib\net45" />
 		<file src="..\Plugins\AdvancedFilters\Web.config.transform" target="content" />
 	</files>
 </package>

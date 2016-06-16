@@ -1,4 +1,4 @@
-﻿/* Copyright (c) 2011 Nathanael Jones. See license.txt for your rights. */
+﻿/* Copyright (c) 2014 Imazen See license.txt for your rights. */
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -18,8 +18,11 @@ namespace ImageResizer.Plugins.Watermark
     /// <summary>
     /// Provides extensibility points for drawing watermarks and even modifying resizing/image settings
     /// </summary>
-    public class WatermarkPlugin : LegacyWatermarkFeatures, IPlugin, IQuerystringPlugin
+    public class WatermarkPlugin : LegacyWatermarkFeatures, IPlugin, IQuerystringPlugin, ILicensedPlugin
     {
+        /// <summary>
+        /// Creates a new instance of the watermark plugin.
+        /// </summary>
         public WatermarkPlugin() {
         }
 
@@ -54,21 +57,34 @@ namespace ImageResizer.Plugins.Watermark
             get { return _namedWatermarks; }
             set { _namedWatermarks = value; }
         }
+        /// <summary>
+        /// Adds the plugin to the given configuration container
+        /// </summary>
+        /// <param name="c"></param>
+        /// <returns></returns>
         public IPlugin Install(Configuration.Config c) {
             c.Plugins.add_plugin(this);
             this.c = c;
             this.OtherImages.ConfigInstance = c;
             _namedWatermarks = ParseWatermarks(c.getConfigXml().queryFirst("watermarks"), ref _defaultImageQuery, ref _otherImages);
             c.Pipeline.PostRewrite += Pipeline_PostRewrite;
+            c.Plugins.GetOrInstall<LicenseVerifier.LicenseEnforcer<WatermarkPlugin>>();
             return this;
         }
 
-      
+      /// <summary>
+      /// Removes the plugin from the given configuration container
+      /// </summary>
+      /// <param name="c"></param>
+      /// <returns></returns>
         public bool Uninstall(Configuration.Config c) {
             c.Plugins.remove_plugin(this);
             return true;
         }
-
+        /// <summary>
+        /// Returns the querystrings command keys supported by this plugin. 
+        /// </summary>
+        /// <returns></returns>
         public IEnumerable<string> GetSupportedQuerystringKeys() {
             return new string[] { "watermark" };
         }
@@ -287,6 +303,13 @@ namespace ImageResizer.Plugins.Watermark
 
             string[] parts = watermark.Split(new string[] { "," }, StringSplitOptions.RemoveEmptyEntries);
             return parts;
+        }
+        /// <summary>
+        /// Returns the license key feature codes that are able to activate this plugins.
+        /// </summary>
+        public IEnumerable<string> LicenseFeatureCodes
+        {
+            get { yield return "R4Creative"; yield return "R4Watermark"; }
         }
     }
 }

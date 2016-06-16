@@ -1,4 +1,8 @@
-﻿/* Copyright (c) 2011 Nathanael Jones. See license.txt */
+// Copyright (c) Imazen LLC.
+// No part of this project, including this file, may be copied, modified,
+// propagated, or distributed except as permitted in COPYRIGHT.txt.
+// Licensed under the Apache License, Version 2.0.
+﻿
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -126,7 +130,7 @@ namespace ImageResizer.Plugins.Basic {
         /// If an unsupported format is specified, it is returned.
         /// If *no* format is specified, returns defaultValue.
         /// </summary>
-		/// <param name="format"></param>
+        /// <param name="format"></param>
         /// <param name="defaultValue"></param>
         /// <returns></returns>
         public static ImageFormat GetRequestedFormat(string format, ImageFormat defaultValue) {
@@ -179,7 +183,7 @@ namespace ImageResizer.Plugins.Basic {
         /// Returns an string instance from the specfied ImageFormat. First matching entry in imageExtensions is used.
         /// Returns null if not recognized.
         /// </summary>
-		/// <param name="format"></param>
+        /// <param name="format"></param>
         /// <returns></returns>
         public static string GetExtensionFromImageFormat(ImageFormat format)
         {
@@ -269,7 +273,7 @@ namespace ImageResizer.Plugins.Basic {
             else if (ImageFormat.Gif.Equals(format))
                 return "image/gif";
             else if (ImageFormat.Bmp.Equals(format))
-                return "image/x-ms-bmp";
+                return "image/bmp";
             else if (ImageFormat.Tiff.Equals(format))
                 return "image/tiff";
             else
@@ -337,19 +341,7 @@ namespace ImageResizer.Plugins.Basic {
                 {
                     p.Param[0] = ep;
                     //save
-                    if (!target.CanSeek)
-                    {
-                        //Write to an intermediate, seekable memory stream (PNG compression requires it)
-                        using (MemoryStream ms = new MemoryStream(4096))
-                        {
-                            b.Save(ms, GetImageCodeInfo("image/jpeg"), p);
-                            ms.WriteTo(target);
-                        }
-                    }
-                    else
-                    {
-                        b.Save(target, GetImageCodeInfo("image/jpeg"), p);
-                    }
+                    b.Save(target, GetImageCodeInfo("image/jpeg"), p);
                 }
             }
         }
@@ -375,38 +367,16 @@ namespace ImageResizer.Plugins.Basic {
         }
         public static void SaveBmp(Image img, Stream target)
         {
-            if (!target.CanSeek)
-            {
-                //Write to an intermediate, seekable memory stream (PNG compression requires it)
-                using (MemoryStream ms = new MemoryStream(4096))
-                {
-                    img.Save(ms, ImageFormat.Bmp);
-                    ms.WriteTo(target);
-                }
-            }
-            else
-            {//  image/bmp
-                //  The parameter list requires 0 bytes.
-                img.Save(target, ImageFormat.Bmp);
-            }
+            //  image/bmp
+            //  The parameter list requires 0 bytes.
+            img.Save(target, ImageFormat.Bmp);
         }
 
 
         public static void SaveGif(Image img, Stream target) {
-            if (!target.CanSeek)
-            {
-                //Write to an intermediate, seekable memory stream (PNG compression requires it)
-                using (MemoryStream ms = new MemoryStream(4096))
-                {
-                    img.Save(ms, ImageFormat.Gif);
-                    ms.WriteTo(target);
-                }
-            }
-            else
-            {//image/gif
-                //  The parameter list requires 0 bytes.
-                img.Save(target, ImageFormat.Gif);
-            }
+            //image/gif
+            //  The parameter list requires 0 bytes.
+            img.Save(target, ImageFormat.Gif);
         }
 
         #endregion

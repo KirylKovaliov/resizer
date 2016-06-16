@@ -1,9 +1,14 @@
+// Copyright (c) Imazen LLC.
+// No part of this project, including this file, may be copied, modified,
+// propagated, or distributed except as permitted in COPYRIGHT.txt.
+// Licensed under the Apache License, Version 2.0.
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
 using ImageResizer.Collections;
 using System.Reflection;
 using System.Globalization;
+using System.Linq;
 
 namespace ImageResizer.ExtensionMethods {
 
@@ -20,6 +25,23 @@ namespace ImageResizer.ExtensionMethods {
 
         public EnumStringAttribute(string name) : this(name, false) { }
     }
+
+    [AttributeUsage(AttributeTargets.Enum | AttributeTargets.Field, AllowMultiple = true)]
+    public sealed class EnumRemovePrefixAttribute : Attribute
+    {
+        public string Name { get; set; }
+        public bool Default { get; set; }
+
+        public EnumRemovePrefixAttribute(string name, bool defaultForSerialization)
+            : base()
+        {
+            Name = name;
+            Default = defaultForSerialization;
+        }
+
+        public EnumRemovePrefixAttribute(string name) : this(name, false) { }
+    }
+
 
     /// <summary>
     /// Extends enumerations by allowing them to define alternate strings with the [EnumString("Alternate Name",true)]  attribute, and support it through TryParse and ToPreferredString
@@ -43,6 +65,10 @@ namespace ImageResizer.ExtensionMethods {
             //Get the enumeration fields
             FieldInfo[] fields = t.GetFields(BindingFlags.Static | BindingFlags.GetField | BindingFlags.Public);
 
+            //Prefixes
+            var prefixes = t.GetCustomAttributes(typeof(EnumRemovePrefixAttribute), false).Where(attr => attr is EnumRemovePrefixAttribute).Select(attr => ((EnumRemovePrefixAttribute)attr).Name);
+            
+
             //Create modifiable dictionaries
             var ev = new Dictionary<string, Enum>(fields.Length * 2, StringComparer.OrdinalIgnoreCase);
             var ep = new Dictionary<Enum, string>(fields.Length);
@@ -61,6 +87,11 @@ namespace ImageResizer.ExtensionMethods {
                     if (a.Default) defaultName = a.Name;
                     ev[a.Name] = value;
                 }
+
+               foreach (String unprefixed in prefixes.Where(prefix => name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)).Select(prefix => name.Remove(0,prefix.Length))){
+                   ev[unprefixed] = value;
+               }
+
                 //Add the preferred name
                 if (!ep.ContainsKey(value)) ep[value] = defaultName;
 
@@ -97,8 +128,9 @@ namespace ImageResizer.ExtensionMethods {
         /// </summary>
         /// <param name="en"></param>
         /// <param name="value"></param>
+        /// <param name="defaultValue"></param>
         /// <returns></returns>
-        public static T Parse<T>(T en, string value, T defaultValue) where T : struct, IConvertible {
+        public static T Parse<T>(this T en, string value, T defaultValue) where T : struct, IConvertible {
             T? val = EnumExtensions.Parse<T>(en, value);
             return val == null ? defaultValue : val.Value;
         }
@@ -110,7 +142,7 @@ namespace ImageResizer.ExtensionMethods {
         /// <param name="en"></param>
         /// <param name="value"></param>
         /// <returns></returns>
-        public static T? Parse<T>(T en, string value) where T:struct, IConvertible {
+        public static T? Parse<T>(this T en, string value) where T:struct, IConvertible {
             return Parse<T>(value);
         }
         public static T? Parse<T>(string value) where T:struct, IConvertible {
@@ -153,7 +185,7 @@ namespace ImageResizer.ExtensionMethods {
         /// <param name="en"></param>
         /// <param name="lowerCase"></param>
         /// <returns></returns>
-        public static string ToPreferredString(Enum en, bool lowerCase) //ext method
+        public static string ToPreferredString(this Enum en, bool lowerCase) //ext method
         {
             Type t = en.GetType();
             bool isFlags = false; //Not supported yet t.IsDefined(typeof(FlagsAttribute), false);

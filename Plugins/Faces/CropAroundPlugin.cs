@@ -1,3 +1,8 @@
+// Copyright (c) Imazen LLC.
+// No part of this project, including this file, may be copied, modified,
+// propagated, or distributed except as permitted in COPYRIGHT.txt.
+// Licensed under the GNU Affero General Public License, Version 3.0.
+// Commercial licenses available at http://imageresizing.net/
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -13,16 +18,30 @@ namespace ImageResizer.Plugins.CropAround {
     /// </summary>
     public class CropAroundPlugin:BuilderExtension, IPlugin,IQuerystringPlugin  {
      
+        /// <summary>
+        /// Adds the plugin to the given configuration container
+        /// </summary>
+        /// <param name="c"></param>
+        /// <returns></returns>
         public IPlugin Install(Configuration.Config c) {
             c.Plugins.add_plugin(this);
             return this;
         }
 
+        /// <summary>
+        /// Removes the plugin from the given configuration container
+        /// </summary>
+        /// <param name="c"></param>
+        /// <returns></returns>
         public bool Uninstall(Configuration.Config c) {
             c.Plugins.remove_plugin(this);
             return true;
         }
 
+        /// <summary>
+        /// Returns the querystrings command keys supported by this plugin. 
+        /// </summary>
+        /// <returns></returns>
         public IEnumerable<string> GetSupportedQuerystringKeys() {
             return new string[] { "c.focus", "c.zoom", "c.finalmode" };
         }
@@ -32,7 +51,7 @@ namespace ImageResizer.Plugins.CropAround {
             if (s.settings.Mode != FitMode.Crop || s.settings.Width < 0 || s.settings.Height < 0) return RequestedAction.None;
 
             //Calculate bounding box for all coordinates specified.
-            double[] focus = NameValueCollectionExtensions.GetList<double>(s.settings, "c.focus", null, 2, 4, 8, 12, 16, 20, 24, 28, 32, 36, 40, 44, 48, 52, 56, 60, 64, 68, 72);
+            double[] focus = s.settings.GetList<double>("c.focus", null, 2, 4, 8, 12, 16, 20, 24, 28, 32, 36, 40, 44, 48, 52, 56, 60, 64, 68, 72);
             if (focus == null) return RequestedAction.None;
             RectangleF box = PolygonMath.GetBoundingBox(focus);
 
@@ -45,7 +64,7 @@ namespace ImageResizer.Plugins.CropAround {
             SizeF copySize;
 
             //Now, we can either crop as closely as possible or as loosely as possible. 
-            if (NameValueCollectionExtensions.Get<bool>(s.settings, "c.zoom", false) && box.Width > 0 && box.Height > 0) {
+            if (s.settings.Get<bool>("c.zoom", false) && box.Width > 0 && box.Height > 0) {
                 //Crop close
                 copySize = PolygonMath.ScaleOutside(box.Size, targetSize);
             } else {
@@ -60,13 +79,13 @@ namespace ImageResizer.Plugins.CropAround {
 
             s.copyRect = box;
             
-            ///What is the vertical and horizontal aspect ratio different in result pixels?
+            //What is the vertical and horizontal aspect ratio different in result pixels?
             var padding = PolygonMath.ScaleInside(box.Size, targetSize);
             padding = new SizeF(targetSize.Width - padding.Width, targetSize.Height - padding.Height);
 
 
             //So, if we haven't met the aspect ratio yet, what mode will we pass on?
-            var finalmode = NameValueCollectionExtensions.Get<FitMode>(s.settings, "c.finalmode", FitMode.Pad);
+            var finalmode = s.settings.Get<FitMode>("c.finalmode", FitMode.Pad);
 
             //Crop off 1 or 2 pixels instead of padding without worrying too much
             if (finalmode == FitMode.Pad && padding.Width + padding.Height < 3) finalmode = FitMode.Crop;

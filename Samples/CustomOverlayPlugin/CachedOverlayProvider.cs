@@ -1,3 +1,7 @@
+// Copyright (c) Imazen LLC.
+// No part of this project, including this file, may be copied, modified,
+// propagated, or distributed except as permitted in COPYRIGHT.txt.
+// Licensed under the Apache License, Version 2.0.
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
@@ -86,20 +90,20 @@ namespace ImageResizer.Plugins.CustomOverlay {
 //                            WHERE LogoDesignMap.ID = @designmapid AND LogoImage2.IsLegacy = 0";
 
             SqlQuery = @"SELECT
-	                        NickName, 
-	                        DesignDesc,
-	                        Color.IsDarkColor,
-	                        UsageDesc,
-	                        X1, Y1, X2, Y2, X4, Y4, X3, Y3, 
-	                        LogoAlignment
+                            NickName, 
+                            DesignDesc,
+                            Color.IsDarkColor,
+                            UsageDesc,
+                            X1, Y1, X2, Y2, X4, Y4, X3, Y3, 
+                            LogoAlignment
 
-	                        FROM LogoDesignView 
-	                        INNER JOIN LogoImage2
-			                        ON (LogoDesignView.LogoUsageId = LogoImage2.LogoUsageID AND LogoDesignView.MastId = LogoImage2.MastID AND
-			                        LogoImage2.MastID = @masterid AND LogoImage2.ColorID = @colorid)
-	                        INNER JOIN Color
-			                        ON (Color.ColorID = @colorid)
-	                        WHERE LogoDesignID = @designid AND LogoDesignView.OrgID=@orgid and LogoImage2.LogoUsageID=@logousageid AND LogoImage2.IsLegacy = 0 ";
+                            FROM LogoDesignView 
+                            INNER JOIN LogoImage2
+                                    ON (LogoDesignView.LogoUsageId = LogoImage2.LogoUsageID AND LogoDesignView.MastId = LogoImage2.MastID AND
+                                    LogoImage2.MastID = @masterid AND LogoImage2.ColorID = @colorid)
+                            INNER JOIN Color
+                                    ON (Color.ColorID = @colorid)
+                            WHERE LogoDesignID = @designid AND LogoDesignView.OrgID=@orgid and LogoImage2.LogoUsageID=@logousageid AND LogoImage2.IsLegacy = 0 ";
 
             
 

@@ -1,3 +1,8 @@
+// Copyright (c) Imazen LLC.
+// No part of this project, including this file, may be copied, modified,
+// propagated, or distributed except as permitted in COPYRIGHT.txt.
+// Licensed under the GNU Affero General Public License, Version 3.0.
+// Commercial licenses available at http://imageresizing.net/
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
@@ -13,6 +18,8 @@ using ImageResizer.Plugins.Wic;
 using System.Runtime.InteropServices.ComTypes;
 
 namespace ImageResizer.Plugins.WicEncoder {
+
+    [Obsolete("This plugin uses Windows Imaging Components, which is buggy and closed-source; see FastScaling for a better alternative.")]
     public class WicEncoderPlugin : DefaultEncoder, IPlugin, IEncoder {
 
 

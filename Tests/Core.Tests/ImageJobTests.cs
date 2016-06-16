@@ -1,9 +1,10 @@
+// Copyright (c) Imazen LLC.
+// No part of this project, including this file, may be copied, modified,
+// propagated, or distributed except as permitted in COPYRIGHT.txt.
+// Licensed under the Apache License, Version 2.0.
 ﻿using System.Collections.Generic;
 using System.Text;
-using Gallio.Framework;
-using MbUnit.Framework;
-using MbUnit.Core;
-using MbUnit.Framework.ContractVerifiers;
+using Xunit;
 using ImageResizer.Configuration;
 using System.Drawing;
 using System.IO;
@@ -16,7 +17,6 @@ using ImageResizer.Tests;
 namespace ImageResizer.Core.Tests
 {
 
-    [TestFixture]
     public class ImageJobTests
     {
         Config c = new Config();
@@ -24,29 +24,41 @@ namespace ImageResizer.Core.Tests
         {
         }
 
-        [Test]
+        [Fact]
         public void TestImageJob()
         {
             var ms = new MemoryStream();
             var j = new ImageJob(ImageBuilderTest.GetBitmap(100, 200), ms, new Instructions("width=50;format=jpg"));
             c.CurrentImageBuilder.Build(j);
-            Assert.AreEqual(j.SourceWidth, 100);
-            Assert.AreEqual(j.SourceHeight, 200);
-            Assert.AreEqual(j.ResultFileExtension, "jpg");
-            Assert.AreEqual(j.ResultMimeType, "image/jpeg");
+            Assert.Equal(j.SourceWidth, 100);
+            Assert.Equal(j.SourceHeight, 200);
+            Assert.Equal(j.ResultFileExtension, "jpg");
+            Assert.Equal(j.ResultMimeType, "image/jpeg");
 
 
         }
 
-        [Test]
+        [Fact]
         public void TestImageInfo()
         {
            var j = new ImageJob(ImageBuilderTest.GetBitmap(100, 200), null);
            c.CurrentImageBuilder.Build(j);
-           Assert.AreEqual(j.SourceWidth, 100);
-           Assert.AreEqual(j.SourceHeight, 200);
-           Assert.AreEqual(j.ResultFileExtension, "jpg");
-           Assert.AreEqual(j.ResultMimeType, "image/jpeg");
+           Assert.Equal(j.SourceWidth, 100);
+           Assert.Equal(j.SourceHeight, 200);
+           Assert.Equal(j.ResultFileExtension, "jpg");
+           Assert.Equal(j.ResultMimeType, "image/jpeg");
+        }
+
+
+        [Fact]
+        public void TestReplaceFileInPalce()
+        {
+            var path = Path.GetTempFileName();
+            ImageBuilderTest.GetBitmap(100, 200).Save(path,ImageFormat.Jpeg);
+
+            var j = new ImageJob(path,path, new Instructions("width=50;format=jpg"));
+            c.CurrentImageBuilder.Build(j);
+            
         }
 
     }

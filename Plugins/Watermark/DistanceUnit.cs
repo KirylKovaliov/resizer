@@ -1,3 +1,8 @@
+// Copyright (c) Imazen LLC.
+// No part of this project, including this file, may be copied, modified,
+// propagated, or distributed except as permitted in COPYRIGHT.txt.
+// Licensed under the GNU Affero General Public License, Version 3.0.
+// Commercial licenses available at http://imageresizing.net/
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
@@ -5,11 +10,23 @@ using ImageResizer.Util;
 using System.Globalization;
 
 namespace ImageResizer.Plugins.Watermark {
+    /// <summary>
+    /// Represents either a number of pixels or a percentage
+    /// </summary>
     public class DistanceUnit {
+        /// <summary>
+        /// Creates DistanceUnit instance based on provided floating point value and type of unit
+        /// </summary>
+        /// <param name="value"></param>
+        /// <param name="type"></param>
         public DistanceUnit(double value, Units type) {
             this.Type = type;
             this.Value = value;
         }
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="value"></param>
         public DistanceUnit(string value) {
             DistanceUnit u = TryParse(value);
             if (u == null) throw new ArgumentException("The specified value \"" + value + "\" could not be parsed.");
@@ -17,7 +34,13 @@ namespace ImageResizer.Plugins.Watermark {
             this.Value = u.Value;
 
         }
-
+        /// <summary>
+        ///  var a = new DistanceUnit();
+        ///  a.TryParse() 
+        ///  DistanceUnit.TryParse("3px") 
+        /// </summary>
+        /// <param name="value"></param>
+        /// <returns></returns>
         public static DistanceUnit TryParse(string value) {
             if (string.IsNullOrEmpty(value)) return null;
             double val = 0;

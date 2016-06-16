@@ -1,3 +1,7 @@
+// Copyright (c) Imazen LLC.
+// No part of this project, including this file, may be copied, modified,
+// propagated, or distributed except as permitted in COPYRIGHT.txt.
+// Licensed under the Apache License, Version 2.0.
 ﻿using System;
 using System.Collections.Generic;
 using System.Web;
@@ -37,7 +41,7 @@ namespace DatabaseSampleCSharp
 
             //This is example code for protecting authorization 
             Config.Current.Plugins.LoadPlugins();
-            Config.Current.Plugins.Get<SqlReaderPlugin>().Settings.BeforeAccess += delegate(string id) {
+            Config.Current.Plugins.Get<SqlReaderPlugin>().BeforeAccess += delegate(string id) {
                 bool allowed = true;
                 //INSERT HERE: execute query or whatever to check authorization to view this files
                 //  SqlParameter pId = Config.Current.Plugins.Get<SqlReaderPlugin>().CreateIdParameter(id);

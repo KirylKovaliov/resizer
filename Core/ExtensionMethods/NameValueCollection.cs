@@ -1,3 +1,7 @@
+// Copyright (c) Imazen LLC.
+// No part of this project, including this file, may be copied, modified,
+// propagated, or distributed except as permitted in COPYRIGHT.txt.
+// Licensed under the Apache License, Version 2.0.
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
@@ -12,6 +16,12 @@ namespace ImageResizer.ExtensionMethods {
         private static NumberStyles floatingPointStyle = NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite | 
             NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint | NumberStyles.AllowThousands | NumberStyles.AllowExponent;
 
+        public static string GetAsString(this NameValueCollection t, string name, string defaultValue) 
+        {
+            var val = t.Get(name);
+            return string.IsNullOrEmpty(val) ? defaultValue : val;
+        }
+
         /// <summary>
         /// Provides culture-invariant parsing of int, double, float, bool, and enum values.
         /// </summary>
@@ -19,7 +29,7 @@ namespace ImageResizer.ExtensionMethods {
         /// <param name="t"></param>
         /// <param name="name"></param>
         /// <returns></returns>
-        public static T? Get<T>(NameValueCollection t, string name) where T : struct, IConvertible {
+        public static T? Get<T>(this NameValueCollection t, string name) where T : struct, IConvertible {
             return Get<T>(t, name, null);
         }
         /// <summary>
@@ -30,7 +40,7 @@ namespace ImageResizer.ExtensionMethods {
         /// <param name="name"></param>
         /// <param name="defaultValue"></param>
         /// <returns></returns>
-        public static T? Get<T>(NameValueCollection q, string name, T? defaultValue) where T:struct, IConvertible{
+        public static T? Get<T>(this NameValueCollection q, string name, T? defaultValue) where T:struct, IConvertible{
             return ParsePrimitive<T>(q[name],defaultValue);
         }
         /// <summary>
@@ -41,7 +51,7 @@ namespace ImageResizer.ExtensionMethods {
         /// <param name="name"></param>
         /// <param name="defaultValue"></param>
         /// <returns></returns>
-        public static T Get<T>(NameValueCollection q, string name, T defaultValue) where T : struct, IConvertible {
+        public static T Get<T>(this NameValueCollection q, string name, T defaultValue) where T : struct, IConvertible {
             return ParsePrimitive<T>(q[name], defaultValue).Value;
         }
 
@@ -114,7 +124,7 @@ namespace ImageResizer.ExtensionMethods {
         /// <param name="name"></param>
         /// <param name="val"></param>
         /// <returns></returns>
-        public static NameValueCollection SetAsString<T>(NameValueCollection q, string name, T val) where T : class {
+        public static NameValueCollection SetAsString<T>(this NameValueCollection q, string name, T val) where T : class {
             if (val == null) q.Remove(name);
             else q[name] = val.ToString();
             return q;
@@ -128,13 +138,13 @@ namespace ImageResizer.ExtensionMethods {
         /// <param name="name"></param>
         /// <param name="val"></param>
         /// <returns></returns>
-        public static NameValueCollection Set<T>(NameValueCollection q, string name, T? val) where T : struct, IConvertible {
+        public static NameValueCollection Set<T>(this NameValueCollection q, string name, T? val) where T : struct, IConvertible {
             if (val == null) q.Remove(name);
             else q[name] = SerializePrimitive<T>(val);
             return q;
         }
 
-        public static T[] GetList<T>(NameValueCollection q, string name, T? fallbackValue, params int[] allowedSizes) where T : struct, IConvertible {
+        public static T[] GetList<T>(this NameValueCollection q, string name, T? fallbackValue, params int[] allowedSizes) where T : struct, IConvertible {
             return ParseList<T>(q[name], fallbackValue, allowedSizes);
         }
 
@@ -178,7 +188,7 @@ namespace ImageResizer.ExtensionMethods {
             return sb.ToString();
         }
 
-        public static NameValueCollection SetList<T>(NameValueCollection q, string name, T[] values, bool throwExceptions, params int[] allowedSizes) where T : struct, IConvertible {
+        public static NameValueCollection SetList<T>(this NameValueCollection q, string name, T[] values, bool throwExceptions, params int[] allowedSizes) where T : struct, IConvertible {
             if (values == null) { q.Remove(name); return q; }
             //Verify the array is of an accepted size
             bool foundCount = allowedSizes.Length == 0;
@@ -199,7 +209,7 @@ namespace ImageResizer.ExtensionMethods {
         /// <param name="q"></param>
         /// <param name="keys"></param>
         /// <returns></returns>
-        public static bool IsOneSpecified(NameValueCollection q, params string[] keys) {
+        public static bool IsOneSpecified(this NameValueCollection q, params string[] keys) {
             foreach (String s in keys) if (!string.IsNullOrEmpty(q[s])) return true;
             return false;
         }
@@ -212,9 +222,10 @@ namespace ImageResizer.ExtensionMethods {
         /// If both the primary and secondary are present, the secondary is removed. 
         /// Otherwise, the secondary is renamed to the primary name.
         /// </summary>
+        /// <param name="q"></param>
         /// <param name="primary"></param>
         /// <param name="secondary"></param>
-        public static NameValueCollection Normalize(NameValueCollection q, string primary, string secondary) {
+        public static NameValueCollection Normalize(this NameValueCollection q, string primary, string secondary) {
             //Get rid of null and empty values.
             if (string.IsNullOrEmpty(q[primary])) q.Remove(primary);
             if (string.IsNullOrEmpty(q[secondary])) q.Remove(secondary);
@@ -236,13 +247,22 @@ namespace ImageResizer.ExtensionMethods {
         /// <param name="q"></param>
         /// <param name="keysToKeep"></param>
         /// <returns></returns>
-        public static NameValueCollection Keep(NameValueCollection q, params string[] keysToKeep) {
+        public static NameValueCollection Keep(this NameValueCollection q, params string[] keysToKeep) {
             NameValueCollection c = new NameValueCollection();
             foreach (string s in keysToKeep)
                 if (q[s] != null) c[s] = q[s];
 
             return c;
         }
+
+        public static NameValueCollection Exclude(this NameValueCollection q, params string[] keysToRemove)
+        {
+            NameValueCollection c = new NameValueCollection(q);
+            foreach (string s in keysToRemove)
+                c.Remove(s);
+            return c;
+        }
+
 
         /// <summary>
         /// Creates and returns a new NameValueCollection instance that contains all of the
@@ -252,7 +272,7 @@ namespace ImageResizer.ExtensionMethods {
         /// <param name="q">The settings specific to a particular query</param>
         /// <param name="defaults">Default settings to use when not overridden by 'q'.</param>
         /// <returns></returns>
-        public static NameValueCollection MergeDefaults(NameValueCollection q, NameValueCollection defaults)
+        public static NameValueCollection MergeDefaults(this NameValueCollection q, NameValueCollection defaults)
         {
             // Start with the defaults, and then blindly copy the keys/values
             // from 'q'.  Any keys in both 'defaults' and 'q' will end up having

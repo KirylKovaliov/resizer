@@ -1,3 +1,7 @@
+// Copyright (c) Imazen LLC.
+// No part of this project, including this file, may be copied, modified,
+// propagated, or distributed except as permitted in COPYRIGHT.txt.
+// Licensed under the Apache License, Version 2.0.
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
@@ -128,7 +132,7 @@ namespace ImageResizer.Plugins.Basic {
 
         protected void ParseXml(Node n, Config conf) {
             if (n == null ) return;
-            OnlyAllowPresets = NameValueCollectionExtensions.Get(n.Attrs, "onlyAllowPresets", OnlyAllowPresets);
+            OnlyAllowPresets = n.Attrs.Get("onlyAllowPresets", OnlyAllowPresets);
             if (n.Children == null) return;
             foreach (Node c in n.Children) {
                 string name = c.Attrs["name"];

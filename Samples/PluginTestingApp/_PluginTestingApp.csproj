@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project ToolsVersion="12.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
@@ -45,6 +45,7 @@
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
     <Prefer32Bit>false</Prefer32Bit>
+    <CodeAnalysisRuleSet>ManagedMinimumRules.ruleset</CodeAnalysisRuleSet>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="System" />
@@ -90,6 +91,7 @@
     <Content Include="Misc\WhitespaceTrimmerTest.aspx" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="BmpEncoder.cs" />
     <Compile Include="Default.aspx.cs">
       <DependentUpon>Default.aspx</DependentUpon>
       <SubType>ASPXCodeBehind</SubType>
@@ -138,10 +140,6 @@
       <Project>{7c8a13f7-5c00-4074-b16e-45d0e231b70d}</Project>
       <Name>ImageResizer.Plugins.PdfRenderer</Name>
     </ProjectReference>
-    <ProjectReference Include="..\..\Core.Mvc\ImageResizer.Mvc.csproj">
-      <Project>{4181b9c4-1eaf-4070-8571-2ee25475547e}</Project>
-      <Name>ImageResizer.Mvc</Name>
-    </ProjectReference>
     <ProjectReference Include="..\..\Core\ImageResizer.csproj">
       <Project>{fa5ef673-a6a4-498d-aa24-c025cc5267af}</Project>
       <Name>ImageResizer</Name>
@@ -185,10 +183,6 @@
     <ProjectReference Include="..\..\Plugins\FreeImage\ImageResizer.Plugins.FreeImage.csproj">
       <Project>{8e863afe-b4cf-46aa-8382-0c3547c0ede9}</Project>
       <Name>ImageResizer.Plugins.FreeImage</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\..\Plugins\ImageStudio\ImageResizer.Plugins.ImageStudio.csproj">
-      <Project>{987e8b0f-0658-48e8-b323-6399c159bbd5}</Project>
-      <Name>ImageResizer.Plugins.ImageStudio</Name>
     </ProjectReference>
     <ProjectReference Include="..\..\Plugins\Libs\FreeImage\Wrapper\FreeImage.NET\cs\Library\WrapperFreeImage.NET.csproj">
       <Project>{6598a7cd-8f27-4d3f-a675-5ae63113a7c3}</Project>

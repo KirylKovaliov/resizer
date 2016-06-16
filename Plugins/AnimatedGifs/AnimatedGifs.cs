@@ -1,4 +1,4 @@
-﻿/* Copyright (c) 2011 Nathanael Jones. See license.txt for your rights */
+﻿/* Copyright (c) 2014 Imazen See license.txt for your rights */
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -13,16 +13,31 @@ using ImageResizer.Configuration;
 using ImageResizer.Plugins.Basic;
 namespace ImageResizer.Plugins.AnimatedGifs
 {
+    /// <summary>
+    /// Adds support for resizing animated gifs. Once added, animated gifs will be resized while maintaining all animated frames. By default, .NET only saves the first frame of the GIF image.
+    /// </summary>
     public class AnimatedGifs : BuilderExtension, IPlugin
     {
         Config c;
+        /// <summary>
+        /// Creates a new instance of the AnimatedGifs plugin.
+        /// </summary>
         public AnimatedGifs(){}
+        /// <summary>
+        /// Adds the plugin to the given configuration container
+        /// </summary>
+        /// <param name="c"></param>
+        /// <returns></returns>
         public IPlugin Install(Configuration.Config c) {
             c.Plugins.add_plugin(this);
-            this.c = c;
+            this.c = c; 
             return this;
         }
-
+        /// <summary>
+        /// Removes the plugin from the given configuration container
+        /// </summary>
+        /// <param name="c"></param>
+        /// <returns></returns>
         public bool Uninstall(Configuration.Config c) {
             c.Plugins.remove_plugin(this);
             return true;
@@ -33,16 +48,17 @@ namespace ImageResizer.Plugins.AnimatedGifs
         /// </summary>
         /// <param name="source"></param>
         /// <param name="dest"></param>
-        /// <param name="settings"></param>
-        protected override RequestedAction buildToStream(Bitmap source, Stream dest, ResizeSettings settings) {
+        /// <param name="job"></param>
+        protected override RequestedAction BuildJobBitmapToStream(ImageJob job, Bitmap source, Stream dest)
+        {
             //Determines output format, includes code for saving in a variety of formats.
             if (ImageFormat.Gif.Equals(source.RawFormat) && //If it's a GIF
-                settings["frame"] == null &&    //With no frame specifier
+                job.Settings["frame"] == null &&    //With no frame specifier
                 source.FrameDimensionsList != null && source.FrameDimensionsList.Length > 0) { //With multiple frames
-                IEncoder enc = c.Plugins.EncoderProvider.GetEncoder(settings, source);
+                IEncoder enc = c.Plugins.EncoderProvider.GetEncoder(job.Settings, source);
                 
                 if (enc.MimeType.Equals("image/gif", StringComparison.OrdinalIgnoreCase) && source.GetFrameCount(FrameDimension.Time) > 1) {
-                    WriteAnimatedGif(source, dest, enc, settings);
+                    WriteAnimatedGif(source, dest, enc, job.Settings);
                     return RequestedAction.Cancel;
                 }
 
